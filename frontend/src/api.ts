@@ -144,6 +144,52 @@ export type RecipeInsights = {
   substitutions: Substitution[];
 };
 
+export type StorePriceEstimate = {
+  store: string;
+  region: string;
+  price: number;
+  currency: string;
+};
+
+export type IngredientPriceEstimate = {
+  ingredient: string;
+  normalized_name: string;
+  estimated_weight_g: number | null;
+  quantity_label: string | null;
+  stores: StorePriceEstimate[];
+  best_store: string | null;
+  best_price: number | null;
+  notes: string[];
+};
+
+export type RecipePriceEstimate = {
+  items: IngredientPriceEstimate[];
+  total_best_price: number | null;
+  currency: string;
+  notes: string[];
+};
+
+export type RecipeRepairSuggestion = {
+  field: string;
+  suggestion: string;
+  reason: string;
+  confidence: string;
+};
+
+export type LowCalorieOption = {
+  title: string;
+  suggestion: string;
+  estimated_savings: string | null;
+};
+
+export type RecipeUpgradeResponse = {
+  pricing: RecipePriceEstimate;
+  substitutions: Substitution[];
+  repairs: RecipeRepairSuggestion[];
+  low_calorie_options: LowCalorieOption[];
+  cook_narration: string[];
+};
+
 /** Empty string = same origin (production Docker deploy). Dev defaults to local API. */
 export const API_BASE =
   import.meta.env.VITE_API_URL !== undefined
@@ -183,6 +229,7 @@ export type HealthStatus = {
   ffmpeg: boolean;
   nutrition: boolean;
   nutrition_usda: boolean;
+  tts_kokoro?: boolean;
 };
 
 function parseApiError(text: string, status: number): Error {
@@ -356,4 +403,30 @@ export async function getInsights(
   });
   await parse(res);
   return res.json();
+}
+
+export async function getRecipeUpgrades(recipe: {
+  title?: string | null;
+  ingredients: string[];
+  steps: string[];
+  servings: number | null;
+  nutrition: NutritionReport | null;
+}): Promise<RecipeUpgradeResponse> {
+  const res = await fetch(`${base}/recipe-upgrades`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(recipe),
+  });
+  await parse(res);
+  return res.json();
+}
+
+export async function synthesizeSpeech(text: string, voice?: string): Promise<Blob> {
+  const res = await fetch(`${base}/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice: voice ?? null }),
+  });
+  await parse(res);
+  return res.blob();
 }

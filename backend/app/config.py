@@ -68,6 +68,22 @@ ENABLE_NUTRITION: bool = _flag("ENABLE_NUTRITION", True)
 # AI nutrition estimates are non-deterministic and only run when no video-stated macros are found.
 ENABLE_GEMINI_NUTRITION: bool = _flag("ENABLE_GEMINI_NUTRITION", False)
 
+# ── Grocery pricing: optional live/partner JSON feed; built-in estimates are fallback only. ──
+SPOONACULAR_API_KEY: str = _clean_secret(os.getenv("SPOONACULAR_API_KEY", ""))
+GROCERY_PRICE_FEED_URL: str = os.getenv("GROCERY_PRICE_FEED_URL", "").strip()
+GROCERY_PRICE_FEED_FILE: str = os.getenv("GROCERY_PRICE_FEED_FILE", "").strip()
+GROCERY_PRICE_CACHE_TTL_SEC: int = int(os.getenv("GROCERY_PRICE_CACHE_TTL_SEC", "3600") or "3600")
+
+# ── Text-to-speech: optional Kokoro cook-mode narration ──
+ENABLE_KOKORO_TTS: bool = _flag("ENABLE_KOKORO_TTS", False)
+KOKORO_TTS_PROVIDER: str = os.getenv("KOKORO_TTS_PROVIDER", "fal-ai").strip().lower() or "fal-ai"
+KOKORO_MODEL: str = os.getenv("KOKORO_MODEL", "hexgrad/Kokoro-82M").strip()
+KOKORO_VOICE: str = os.getenv("KOKORO_VOICE", "af_heart").strip() or "af_heart"
+KOKORO_LANG_CODE: str = os.getenv("KOKORO_LANG_CODE", "a").strip() or "a"
+HUGGINGFACE_API_KEY: str = _clean_secret(os.getenv("HUGGINGFACE_API_KEY", "") or os.getenv("HF_TOKEN", ""))
+TTS_CACHE_DIR = Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts"))).expanduser()
+TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 # ── yt-dlp cookies / YouTube hardening (see README) ──
 YTDLP_COOKIES_FILE: str = os.getenv("YTDLP_COOKIES_FILE", "").strip()
 YTDLP_COOKIES_FROM_BROWSER: str = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip()

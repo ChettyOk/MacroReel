@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,9 @@ from app.schemas import (
     RecipeInsights,
     RecipeRead,
     RecipeUpdate,
+    RecipeUpgradeRequest,
+    RecipeUpgradeResponse,
+    TTSRequest,
     VideoExtractRequest,
     lists_to_json,
     profile_row_to_base,
@@ -46,6 +49,8 @@ from app.thumbnail_cache import (
     resolve_remote_thumbnail_url,
 )
 from app.spa import mount_spa
+from app.tts import TTSError, synthesize_kokoro
+from app.upgrades import build_recipe_upgrades
 from app.video_context import fetch_video_context
 from app.video_urls import normalize_video_url
 
@@ -77,6 +82,7 @@ def health() -> dict[str, object]:
         "nutrition": config.ENABLE_NUTRITION,
         "nutrition_usda": bool(config.USDA_API_KEY),
         "nutrition_gemini": bool(config.GEMINI_API_KEY),
+        "tts_kokoro": config.ENABLE_KOKORO_TTS,
         "supported_video_platforms": ["tiktok", "youtube", "instagram", "facebook"],
     }
 
@@ -262,6 +268,34 @@ def insights(body: InsightsRequest, db: Annotated[Session, Depends(get_db)]) -> 
     """Personalized insights, allergy warnings, and substitution suggestions for a recipe/draft."""
     profile = _get_profile_base(db)
     return build_insights(body.ingredients, body.nutrition, body.servings, profile)
+
+
+@app.post("/recipe-upgrades", response_model=RecipeUpgradeResponse)
+def recipe_upgrades(body: RecipeUpgradeRequest, db: Annotated[Session, Depends(get_db)]) -> RecipeUpgradeResponse:
+    """Grocery pricing, repair suggestions, cheaper swaps, and cook narration support."""
+    profile = _get_profile_base(db)
+    return build_recipe_upgrades(
+        title=body.title,
+        ingredients=body.ingredients,
+        steps=body.steps,
+        servings=body.servings,
+        nutrition=body.nutrition,
+        profile=profile,
+    )
+
+
+@app.post("/tts")
+def text_to_speech(body: TTSRequest) -> Response:
+    """Generate cook-mode narration audio with Kokoro when enabled."""
+    try:
+        audio, media_type = synthesize_kokoro(body.text, body.voice)
+    except TTSError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    return Response(
+        content=audio,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 def _apply_create(body: RecipeCreate) -> Recipe:

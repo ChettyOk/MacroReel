@@ -158,6 +158,66 @@ Calories and macros are computed automatically on import (no USDA key required).
 
 The UI shows **total recipe calories** (whole batch), **per serving**, and **your portion** (servings eaten adjuster). `POST /nutrition` accepts optional `context_text` (video caption) for better caption parsing.
 
+## Upgrades
+
+- **Store-aware grocery pricing:** the Upgrades tab estimates ingredient and full-recipe cost. By default it uses built-in rough prices for stores like Walmart, Real Canadian Superstore, and Whole Foods. Configure `SPOONACULAR_API_KEY` for Spoonacular average ingredient costs, or `GROCERY_PRICE_FEED_FILE` / `GROCERY_PRICE_FEED_URL` for store-specific live/partner prices.
+- **AI cooking companion:** cook mode can read recipe steps aloud. Enable `ENABLE_KOKORO_TTS=true` with `HUGGINGFACE_API_KEY` to use `hexgrad/Kokoro-82M` voice `af_heart`; the browser voice remains the fallback.
+- **Ingredient substitutions:** the app suggests cheaper, easier-to-find, or locally available alternatives while keeping the recipe close to the creator's original intent.
+- **Recipe repair:** the app flags missing creator details such as oven temperature, cooking time, serving size, ingredient quantities, and nutrition context.
+- **Low-calorie serving options:** when recipes are calorie-dense or vague, the app suggests lower-calorie portions or swaps.
+
+### Grocery pricing providers
+
+Provider priority is:
+
+1. Store-specific JSON feed (`GROCERY_PRICE_FEED_FILE` or `GROCERY_PRICE_FEED_URL`)
+2. Spoonacular average ingredient estimated cost (`SPOONACULAR_API_KEY`)
+3. Built-in placeholder estimates
+
+Spoonacular uses ingredient search plus ingredient information estimated cost. It is useful for average prices, but it does not represent a specific Walmart, Superstore, or Whole Foods location.
+
+### Grocery price feed format
+
+```json
+{
+  "currency": "CAD",
+  "items": [
+    {
+      "name": "chicken breast",
+      "aliases": ["boneless chicken breast"],
+      "store": "Real Canadian Superstore",
+      "region": "Canada",
+      "price": 13.49,
+      "unit": "kg"
+    },
+    {
+      "name": "rice",
+      "store": "Walmart",
+      "region": "US",
+      "price": 6.99,
+      "package_size_g": 2000
+    }
+  ]
+}
+```
+
+Feed items can use `price_per_kg`, `price` + `unit` (`kg`, `g`, or `lb`), or `price` + `package_size_g`.
+
+### Kokoro voice setup
+
+MacroReel can use [hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) for cook-mode read-aloud. The default voice is `af_heart`.
+
+```env
+ENABLE_KOKORO_TTS=true
+KOKORO_TTS_PROVIDER=fal-ai
+HUGGINGFACE_API_KEY=your_huggingface_token
+KOKORO_MODEL=hexgrad/Kokoro-82M
+KOKORO_VOICE=af_heart
+TTS_CACHE_DIR=/data/tts
+```
+
+Generated audio is cached under `TTS_CACHE_DIR`. If Kokoro is disabled or fails, cook mode falls back to the device/browser voice.
+
 ## Deploy to production
 
 **Quick path:** Docker Compose locally, then [Render](https://render.com) via `render.yaml`.

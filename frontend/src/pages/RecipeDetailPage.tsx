@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { Recipe, RecipeInsights } from "../api";
+import type { Recipe, RecipeInsights, RecipeUpgradeResponse } from "../api";
 import * as api from "../api";
 import { CookStepViewer } from "../components/CookStepViewer";
 import { DietaryTags } from "../components/DietaryTags";
@@ -16,7 +16,48 @@ import { useShoppingCart } from "../context/ShoppingCartContext";
 import { platformOpenLabel } from "../lib/videoUrl";
 import { portionNutrition } from "../portion";
 
-type Tab = "nutrition" | "cook" | "original";
+type Tab = "nutrition" | "cook" | "upgrades" | "original";
+
+const FEMININE_VOICE_HINTS = [
+  "samantha",
+  "ava",
+  "jenny",
+  "aria",
+  "zira",
+  "susan",
+  "karen",
+  "moira",
+  "tessa",
+  "fiona",
+  "victoria",
+  "allison",
+  "female",
+  "google us english",
+];
+
+const MASCULINE_VOICE_HINTS = ["daniel", "alex", "fred", "thomas", "male"];
+
+function preferredCookVoice(): SpeechSynthesisVoice | null {
+  if (!("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  const scored = voices
+    .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
+    .map((voice) => {
+      const name = voice.name.toLowerCase();
+      let score = 0;
+      if (voice.localService) score += 2;
+      if (voice.default) score += 1;
+      if (voice.lang.toLowerCase().startsWith("en-us")) score += 2;
+      if (FEMININE_VOICE_HINTS.some((hint) => name.includes(hint))) score += 10;
+      if (MASCULINE_VOICE_HINTS.some((hint) => name.includes(hint))) score -= 8;
+      return { voice, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.voice ?? voices[0] ?? null;
+}
 
 export function RecipeDetailPage() {
   const { id } = useParams();
@@ -24,6 +65,7 @@ export function RecipeDetailPage() {
   const navigate = useNavigate();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [insights, setInsights] = useState<RecipeInsights | null>(null);
+  const [upgrades, setUpgrades] = useState<RecipeUpgradeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("nutrition");
@@ -32,7 +74,13 @@ export function RecipeDetailPage() {
   const [doneSteps, setDoneSteps] = useState<Set<number>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [cartMsg, setCartMsg] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+  const [cookVoice, setCookVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [showDeletePrompt, setShowDeletePrompt] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { addRecipe, recipeEntryCount } = useShoppingCart();
   const { removeFavorite } = useFavorites();
 
@@ -41,15 +89,22 @@ export function RecipeDetailPage() {
     let cancelled = false;
     setLoading(true);
     setErr(null);
+    setUpgrades(null);
     void api
       .fetchRecipe(recipeId)
       .then((r) => {
         if (cancelled) return;
         setRecipe(r);
-        return api
-          .getInsights(r.ingredients, r.servings, r.nutrition)
-          .then((i) => !cancelled && setInsights(i))
-          .catch(() => undefined);
+        return Promise.all([
+          api.getInsights(r.ingredients, r.servings, r.nutrition).then((i) => !cancelled && setInsights(i)),
+          api.getRecipeUpgrades({
+            title: r.title,
+            ingredients: r.ingredients,
+            steps: r.steps,
+            servings: r.servings,
+            nutrition: r.nutrition,
+          }).then((u) => !cancelled && setUpgrades(u)),
+        ]).catch(() => undefined);
       })
       .catch((e) => !cancelled && setErr(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => !cancelled && setLoading(false));
@@ -74,6 +129,20 @@ export function RecipeDetailPage() {
     };
   }, [tab]);
 
+  useEffect(() => {
+    const loadVoice = () => setCookVoice(preferredCookVoice());
+    loadVoice();
+    window.speechSynthesis?.addEventListener("voiceschanged", loadVoice);
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      window.speechSynthesis?.cancel();
+      window.speechSynthesis?.removeEventListener("voiceschanged", loadVoice);
+    };
+  }, []);
+
   async function handleRefreshNutrition() {
     if (!recipe) return;
     setRefreshing(true);
@@ -91,13 +160,90 @@ export function RecipeDetailPage() {
   }
 
   async function handleDelete() {
-    if (!recipe || !window.confirm("Remove from cookbook?")) return;
+    if (!recipe) return;
+    setDeleting(true);
+    setDeleteErr(null);
     try {
       await api.deleteRecipe(recipe.id);
       removeFavorite(recipe.id);
+      setShowDeletePrompt(false);
       navigate("/cookbook");
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Delete failed");
+      setDeleteErr(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function narrationText(): string {
+    const fallbackNarration = [
+      recipe?.title ? `Starting ${recipe.title}.` : "Starting this recipe.",
+      ...((recipe?.steps ?? []).map((s, i) => `Step ${i + 1}. ${s}`)),
+    ].join(" ");
+    return upgrades?.cook_narration?.length
+      ? upgrades.cook_narration.join(" ")
+      : fallbackNarration;
+  }
+
+  function stopReadAloud() {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
+
+  function speakWithBrowserVoice(narration: string) {
+    if (!("speechSynthesis" in window)) {
+      setSpeaking(false);
+      setCartMsg("Read-aloud is not supported in this browser.");
+      globalThis.setTimeout(() => setCartMsg(null), 2800);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(narration);
+    const voice = cookVoice ?? preferredCookVoice();
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.94;
+    utterance.pitch = 1.08;
+    utterance.volume = 1;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function handleReadAloud() {
+    if (speaking) {
+      stopReadAloud();
+      return;
+    }
+    const narration = narrationText();
+    if (!narration.trim()) return;
+    setSpeaking(true);
+    try {
+      const blob = await api.synthesizeSpeech(narration, "af_heart");
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setSpeaking(false);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        speakWithBrowserVoice(narration);
+      };
+      try {
+        await audio.play();
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        throw e;
+      }
+    } catch {
+      speakWithBrowserVoice(narration);
     }
   }
 
@@ -194,14 +340,14 @@ export function RecipeDetailPage() {
       </div>
 
       <div className="tabs">
-        {(["nutrition", "cook", "original"] as Tab[]).map((t) => (
+        {(["nutrition", "cook", "upgrades", "original"] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
             className={`tabs__btn ${tab === t ? "tabs__btn--active" : ""}`}
             onClick={() => setTab(t)}
           >
-            {t === "nutrition" ? "Nutrition" : t === "cook" ? "Cook" : "Original"}
+            {t === "nutrition" ? "Nutrition" : t === "cook" ? "Cook" : t === "upgrades" ? "Upgrades" : "Original"}
           </button>
         ))}
       </div>
@@ -234,6 +380,9 @@ export function RecipeDetailPage() {
           <p className="cook-mode__hint">
             Cook mode — screen stays awake. Tap steps as you go.
           </p>
+          <button type="button" className="btn btn--secondary btn--block" style={{ marginBottom: "0.85rem" }} onClick={handleReadAloud}>
+            {speaking ? "Stop read-aloud" : "Read recipe aloud"}
+          </button>
           <CookStepViewer
             steps={recipe.steps}
             doneSteps={doneSteps}
@@ -255,6 +404,87 @@ export function RecipeDetailPage() {
         </section>
       ) : null}
 
+      {tab === "upgrades" ? (
+        <section className="form-stack">
+          {!upgrades ? (
+            <p className="card" style={{ color: "var(--text-muted)" }}>Loading upgrades…</p>
+          ) : (
+            <>
+              <div className="card">
+                <h2 style={{ fontSize: "1rem", margin: "0 0 0.5rem" }}>Grocery estimate</h2>
+                <p style={{ margin: "0 0 0.75rem", color: "var(--text-muted)", fontSize: "0.86rem" }}>
+                  {upgrades.pricing.total_best_price != null
+                    ? `Estimated ingredient use: ${upgrades.pricing.currency} ${upgrades.pricing.total_best_price.toFixed(2)}`
+                    : "Add ingredient quantities to estimate grocery cost."}
+                </p>
+                <div className="upgrade-list">
+                  {upgrades.pricing.items.slice(0, 8).map((item, i) => (
+                    <div key={`${item.ingredient}-${i}`} className="upgrade-row">
+                      <div>
+                        <p className="upgrade-row__title">{item.ingredient}</p>
+                        <p className="upgrade-row__meta">
+                          {item.best_price != null && item.best_store
+                            ? `${item.best_store}: ${upgrades.pricing.currency} ${item.best_price.toFixed(2)}`
+                            : item.notes[0] ?? "No estimate yet"}
+                        </p>
+                      </div>
+                      {item.quantity_label ? <span className="pill-soft">{item.quantity_label}</span> : null}
+                    </div>
+                  ))}
+                </div>
+                {upgrades.pricing.notes.map((note) => (
+                  <p key={note} style={{ margin: "0.55rem 0 0", color: "var(--text-dim)", fontSize: "0.76rem" }}>
+                    {note}
+                  </p>
+                ))}
+              </div>
+
+              {upgrades.repairs.length ? (
+                <div className="card">
+                  <h2 style={{ fontSize: "1rem", margin: "0 0 0.65rem" }}>Recipe repair</h2>
+                  <ul className="upgrade-bullets">
+                    {upgrades.repairs.map((r, i) => (
+                      <li key={`${r.field}-${i}`}>
+                        <strong>{r.field.replace("_", " ")}:</strong> {r.suggestion}
+                        <span>{r.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {upgrades.low_calorie_options.length ? (
+                <div className="card">
+                  <h2 style={{ fontSize: "1rem", margin: "0 0 0.65rem" }}>Lower-calorie options</h2>
+                  <ul className="upgrade-bullets">
+                    {upgrades.low_calorie_options.map((opt, i) => (
+                      <li key={`${opt.title}-${i}`}>
+                        <strong>{opt.title}:</strong> {opt.suggestion}
+                        {opt.estimated_savings ? <span>{opt.estimated_savings}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {upgrades.substitutions.length ? (
+                <div className="card">
+                  <h2 style={{ fontSize: "1rem", margin: "0 0 0.65rem" }}>Cheaper or easier swaps</h2>
+                  <ul className="upgrade-bullets">
+                    {upgrades.substitutions.map((s, i) => (
+                      <li key={`${s.ingredient}-${i}`}>
+                        <strong>{s.ingredient}:</strong> {s.suggestion}
+                        <span>{s.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
+
       {tab === "original" ? (
         <section className="card">
           {recipe.source_url ? (
@@ -273,10 +503,50 @@ export function RecipeDetailPage() {
       ) : null}
 
       <div className="btn-row" style={{ marginTop: "1.5rem" }}>
-        <button type="button" className="btn btn--danger" onClick={() => void handleDelete()}>
+        <button type="button" className="btn btn--danger" onClick={() => {
+          setDeleteErr(null);
+          setShowDeletePrompt(true);
+        }}>
           Delete
         </button>
       </div>
+
+      {showDeletePrompt ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => !deleting && setShowDeletePrompt(false)}>
+          <div
+            className="modal-sheet delete-prompt card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-recipe-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="delete-prompt__icon" aria-hidden="true">!</div>
+            <h2 id="delete-recipe-title" className="delete-prompt__title">Delete this recipe?</h2>
+            <p className="delete-prompt__text">
+              <strong>{recipe.title}</strong> will be removed from your cookbook and favorites. This cannot be undone.
+            </p>
+            {deleteErr ? <div className="alert alert--error" role="alert">{deleteErr}</div> : null}
+            <div className="delete-prompt__actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setShowDeletePrompt(false)}
+                disabled={deleting}
+              >
+                Keep recipe
+              </button>
+              <button
+                type="button"
+                className="btn btn--danger"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Delete recipe"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showLog && recipe.nutrition && scaled ? (
         <LogMealModal

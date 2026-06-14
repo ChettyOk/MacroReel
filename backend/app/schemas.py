@@ -238,6 +238,79 @@ class InsightsRequest(BaseModel):
         return [str(x).strip() for x in v if str(x).strip()]
 
 
+class StorePriceEstimate(BaseModel):
+    store: str
+    region: str
+    price: float
+    currency: str
+
+
+class IngredientPriceEstimate(BaseModel):
+    ingredient: str
+    normalized_name: str
+    estimated_weight_g: float | None = None
+    quantity_label: str | None = None
+    stores: list[StorePriceEstimate] = Field(default_factory=list)
+    best_store: str | None = None
+    best_price: float | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class RecipePriceEstimate(BaseModel):
+    items: list[IngredientPriceEstimate] = Field(default_factory=list)
+    total_best_price: float | None = None
+    currency: str = "USD/CAD"
+    notes: list[str] = Field(default_factory=list)
+
+
+class RecipeRepairSuggestion(BaseModel):
+    field: str
+    suggestion: str
+    reason: str
+    confidence: str = "medium"
+
+
+class LowCalorieOption(BaseModel):
+    title: str
+    suggestion: str
+    estimated_savings: str | None = None
+
+
+class RecipeUpgradeRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+    ingredients: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    servings: int | None = Field(default=None, ge=1, le=100)
+    nutrition: NutritionReport | None = None
+
+    @field_validator("ingredients", "steps", mode="before")
+    @classmethod
+    def _clean_lists(cls, v) -> list[str]:
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise TypeError("expected a list of strings")
+        return [str(x).strip() for x in v if str(x).strip()]
+
+
+class RecipeUpgradeResponse(BaseModel):
+    pricing: RecipePriceEstimate
+    substitutions: list[Substitution] = Field(default_factory=list)
+    repairs: list[RecipeRepairSuggestion] = Field(default_factory=list)
+    low_calorie_options: list[LowCalorieOption] = Field(default_factory=list)
+    cook_narration: list[str] = Field(default_factory=list)
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=8000)
+    voice: str | None = Field(default=None, max_length=80)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _clean_text(cls, v: str) -> str:
+        return str(v).strip()
+
+
 class NutritionRequest(BaseModel):
     ingredients: list[str] = Field(default_factory=list)
     servings: int | None = Field(default=None, ge=1, le=100)

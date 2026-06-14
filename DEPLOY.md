@@ -77,6 +77,13 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `STATIC_DIR` | No | Default `/app/static` in image |
 | `PORT` | No | Default `8000` |
 | `ENABLE_MEDIA_PIPELINE` | No | `true` if ffmpeg available in image (enabled in Dockerfile) |
+| `SPOONACULAR_API_KEY` | No | Enables Spoonacular average ingredient cost estimates |
+| `GROCERY_PRICE_FEED_FILE` | No | JSON partner/store price feed inside the container, e.g. `/data/grocery_prices.json` |
+| `GROCERY_PRICE_FEED_URL` | No | Hosted JSON partner/store price feed URL |
+| `ENABLE_KOKORO_TTS` | No | `true` to use Kokoro TTS for cook-mode narration |
+| `HUGGINGFACE_API_KEY` | No | Required when `KOKORO_TTS_PROVIDER=fal-ai` |
+| `KOKORO_VOICE` | No | Default `af_heart` |
+| `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
 | `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
 | `EXTRA_CORS_ORIGINS` | No | Only if frontend is on a **different** domain |
 

@@ -985,6 +985,69 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: var(--shadow);
 }
 
+.upgrade-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.upgrade-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.upgrade-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.upgrade-row__title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.upgrade-row__meta {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.pill-soft {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.upgrade-bullets {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text);
+}
+
+.upgrade-bullets li {
+  margin-bottom: 0.7rem;
+}
+
+.upgrade-bullets li:last-child {
+  margin-bottom: 0;
+}
+
+.upgrade-bullets span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 /* Onboarding */
 .onboarding {
   min-height: 100vh;
@@ -1688,6 +1751,50 @@ input[type="number"]::-webkit-outer-spin-button {
 .modal-sheet {
   width: 100%;
   max-width: 400px;
+}
+
+.delete-prompt {
+  text-align: center;
+  animation: slide-up 0.22s ease-out both;
+}
+
+.delete-prompt__icon {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 0.85rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger-soft-bg);
+  color: var(--danger-soft-text);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.delete-prompt__title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.delete-prompt__text {
+  margin: 0.55rem 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.delete-prompt__text strong {
+  color: var(--text);
+}
+
+.delete-prompt__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
 }
 
 .portion-stepper {
