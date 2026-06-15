@@ -11,8 +11,32 @@ def test_price_estimate_uses_store_catalog():
 
     assert pricing.total_best_price is not None
     assert pricing.total_best_price > 0
-    assert pricing.items[0].best_store == "Walmart"
-    assert pricing.items[0].stores
+    stores = {store.store for store in pricing.items[0].stores}
+    assert pricing.items[0].best_store in stores
+    assert len(stores) >= 6
+    assert {"Walmart", "Costco", "No Frills", "Real Canadian Superstore"} <= stores
+
+
+def test_price_estimate_uses_canadian_location_stores():
+    pricing = estimate_recipe_price(["200 g chicken breast"], location="Toronto, ON")
+
+    stores = {store.store for store in pricing.items[0].stores}
+    assert pricing.location_label == "Toronto, ON"
+    assert {"No Frills", "Loblaws", "Real Canadian Superstore"} <= stores
+    assert "Kroger" not in stores
+    assert "Target" not in stores
+    assert pricing.possible_stores
+    assert pricing.currency == "CAD"
+
+
+def test_price_estimate_uses_us_location_stores():
+    pricing = estimate_recipe_price(["200 g chicken breast"], location="Austin, TX 78701")
+
+    stores = {store.store for store in pricing.items[0].stores}
+    assert {"Kroger", "Target", "Trader Joe's"} <= stores
+    assert "No Frills" not in stores
+    assert "Real Canadian Superstore" not in stores
+    assert pricing.currency == "USD"
 
 
 def test_price_estimate_prefers_configured_feed(tmp_path, monkeypatch):

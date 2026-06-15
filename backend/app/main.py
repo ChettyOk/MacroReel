@@ -11,6 +11,7 @@ import app.config as config  # noqa: F401 — load .env before other app imports
 from app.daily_log import add_entry, delete_entry, get_log_for_date, week_summary
 from app.database import ensure_schema, get_db
 from app.gemini_extract import GeminiUpstreamError
+from app.grocery_prices import estimate_recipe_price
 from app.insights import build_insights, compute_targets
 from app.models import Profile, Recipe
 from app.nutrition import compute_nutrition
@@ -22,6 +23,7 @@ from app.schemas import (
     DailyLogEntryRead,
     DailyLogWeekDay,
     ExtractFromVideoResponse,
+    GroceryPriceRequest,
     InsightsRequest,
     NutritionReport,
     NutritionRequest,
@@ -31,6 +33,7 @@ from app.schemas import (
     ProfileRead,
     RecipeCreate,
     RecipeInsights,
+    RecipePriceEstimate,
     RecipeRead,
     RecipeUpdate,
     RecipeUpgradeRequest,
@@ -282,6 +285,12 @@ def recipe_upgrades(body: RecipeUpgradeRequest, db: Annotated[Session, Depends(g
         nutrition=body.nutrition,
         profile=profile,
     )
+
+
+@app.post("/grocery-prices", response_model=RecipePriceEstimate)
+def grocery_prices(body: GroceryPriceRequest) -> RecipePriceEstimate:
+    """Estimate shopping-list ingredient prices across configured and built-in stores."""
+    return estimate_recipe_price(body.ingredients, body.location)
 
 
 @app.post("/tts")

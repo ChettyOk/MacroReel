@@ -261,6 +261,30 @@ class RecipePriceEstimate(BaseModel):
     total_best_price: float | None = None
     currency: str = "USD/CAD"
     notes: list[str] = Field(default_factory=list)
+    location_label: str | None = None
+    possible_stores: list[str] = Field(default_factory=list)
+
+
+class GroceryPriceRequest(BaseModel):
+    ingredients: list[str] = Field(default_factory=list)
+    location: str | None = Field(default=None, max_length=120)
+
+    @field_validator("ingredients", mode="before")
+    @classmethod
+    def _clean(cls, v) -> list[str]:
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise TypeError("ingredients must be a list of strings")
+        return [str(x).strip() for x in v if str(x).strip()]
+
+    @field_validator("location", mode="before")
+    @classmethod
+    def _clean_location(cls, v) -> str | None:
+        if v is None:
+            return None
+        cleaned = " ".join(str(v).split())
+        return cleaned or None
 
 
 class RecipeRepairSuggestion(BaseModel):

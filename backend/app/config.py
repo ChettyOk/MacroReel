@@ -2,18 +2,36 @@ import os
 import shutil
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 _backend_dir = Path(__file__).resolve().parent.parent
-# Load the project root .env first, then backend/.env (backend wins for duplicate keys).
-load_dotenv(_backend_dir.parent / ".env", override=True)
-load_dotenv(_backend_dir / ".env", override=True)
+_real_env_keys = set(os.environ)
+
+
+def _load_local_env(path: Path) -> None:
+    for key, value in dotenv_values(path).items():
+        if value is not None and key not in _real_env_keys:
+            os.environ[key] = value
+
+
+# Load local env files without overriding real shell/Render env vars. backend/.env wins over root .env locally.
+_load_local_env(_backend_dir.parent / ".env")
+_load_local_env(_backend_dir / ".env")
 
 BACKEND_DIR = _backend_dir
 
+
+def _writable_dir(path: Path, fallback: Path) -> Path:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    except OSError:
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
+
+
 _data_default = _backend_dir / "data"
-DATA_DIR = Path(os.getenv("DATA_DIR", str(_data_default))).expanduser()
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR = _writable_dir(Path(os.getenv("DATA_DIR", str(_data_default))).expanduser(), _data_default)
 
 _static_default = _backend_dir / "static"
 STATIC_DIR = Path(os.getenv("STATIC_DIR", str(_static_default))).expanduser()
@@ -81,8 +99,7 @@ KOKORO_MODEL: str = os.getenv("KOKORO_MODEL", "hexgrad/Kokoro-82M").strip()
 KOKORO_VOICE: str = os.getenv("KOKORO_VOICE", "af_heart").strip() or "af_heart"
 KOKORO_LANG_CODE: str = os.getenv("KOKORO_LANG_CODE", "a").strip() or "a"
 HUGGINGFACE_API_KEY: str = _clean_secret(os.getenv("HUGGINGFACE_API_KEY", "") or os.getenv("HF_TOKEN", ""))
-TTS_CACHE_DIR = Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts"))).expanduser()
-TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+TTS_CACHE_DIR = _writable_dir(Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tts"))).expanduser(), DATA_DIR / "tts")
 
 # ── yt-dlp cookies / YouTube hardening (see README) ──
 YTDLP_COOKIES_FILE: str = os.getenv("YTDLP_COOKIES_FILE", "").strip()

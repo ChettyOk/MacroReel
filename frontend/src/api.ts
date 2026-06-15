@@ -167,6 +167,8 @@ export type RecipePriceEstimate = {
   total_best_price: number | null;
   currency: string;
   notes: string[];
+  location_label: string | null;
+  possible_stores: string[];
 };
 
 export type RecipeRepairSuggestion = {
@@ -416,6 +418,16 @@ export async function getRecipeUpgrades(recipe: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(recipe),
+  });
+  await parse(res);
+  return res.json();
+}
+
+export async function getGroceryPrices(ingredients: string[], location?: string | null): Promise<RecipePriceEstimate> {
+  const res = await fetch(`${base}/grocery-prices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ingredients, location: location?.trim() || null }),
   });
   await parse(res);
   return res.json();
