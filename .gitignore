@@ -5,6 +5,8 @@ venv/
 *.db
 backend/data/
 .env
+frontend/.env.capacitor
+frontend/.env.local
 # yt-dlp / YouTube cookie exports (sensitive; never commit)
 backend/cookies/
 *.cookies.txt

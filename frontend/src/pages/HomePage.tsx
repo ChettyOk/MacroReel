@@ -75,7 +75,6 @@ export function HomePage() {
   return (
     <div className="page">
       <header style={{ marginBottom: "1.25rem" }}>
-        <img className="brand-logo brand-logo--home" src="/macroreel-icon.svg" alt="MacroReel" />
         <h1 className="page-title">Today</h1>
         <p className="page-sub" style={{ margin: 0 }}>What should you eat?</p>
       </header>
