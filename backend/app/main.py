@@ -59,7 +59,14 @@ from app.video_urls import normalize_video_url
 
 app = FastAPI(title="Recipe API", version="0.3.0")
 
-_default_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
+_default_origins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://localhost",
+    "https://localhost",
+]
 _extra = [o.strip() for o in config.EXTRA_CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,

@@ -6,14 +6,27 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "build:capacitor": "tsc -b && vite build --mode capacitor",
+    "preview": "vite preview",
+    "cap:add:android": "node node_modules/@capacitor/cli/bin/capacitor add android",
+    "cap:add:ios": "node node_modules/@capacitor/cli/bin/capacitor add ios",
+    "cap:build": "npm run build:capacitor && npm run cap:sync",
+    "cap:sync": "node node_modules/@capacitor/cli/bin/capacitor sync",
+    "cap:open:android": "node node_modules/@capacitor/cli/bin/capacitor open android",
+    "cap:open:ios": "node node_modules/@capacitor/cli/bin/capacitor open ios",
+    "cap:run:android": "npm run cap:build && node node_modules/@capacitor/cli/bin/capacitor run android",
+    "cap:run:ios": "npm run cap:build && node node_modules/@capacitor/cli/bin/capacitor run ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.16.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",

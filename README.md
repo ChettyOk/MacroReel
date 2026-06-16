@@ -232,6 +232,10 @@ Full steps (Render, Fly, VPS, env vars, troubleshooting): **[DEPLOY.md](./DEPLOY
 
 The Docker image builds the React app, copies it into `backend/static`, and serves everything from FastAPI on one origin (PWA install + share target work over HTTPS).
 
+## Native App Shell
+
+To wrap MacroReel with Capacitor for Android/iOS, follow **[CAPACITOR.md](./CAPACITOR.md)**. The native app bundles the React UI and calls your deployed Render backend via `VITE_API_URL`.
+
 ## Production notes
 
 - **Database:** SQLite with `DATA_DIR` on a persistent volume (Docker/Render disk). For multiple users at scale, switch to **PostgreSQL** and add Alembic migrations.

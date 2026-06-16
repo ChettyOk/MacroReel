@@ -44,15 +44,37 @@
   box-sizing: border-box;
 }
 
+html {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   background: var(--bg-page);
   color: var(--text);
 }
 
 #root {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 .display-num {
@@ -88,12 +110,13 @@ textarea::placeholder {
 
 /* Layout */
 .app-shell {
-  max-width: 480px;
+  max-width: min(480px, 100vw);
   margin: 0 auto;
   min-height: 100vh;
   width: 100%;
-  overflow-x: clip;
-  padding: 1rem 1rem calc(var(--nav-h) + var(--safe-bottom) + 1rem);
+  min-width: 0;
+  overflow-x: hidden;
+  padding: calc(1rem + var(--safe-top)) max(0.85rem, env(safe-area-inset-right)) calc(var(--nav-h) + var(--safe-bottom) + 1rem) max(0.85rem, env(safe-area-inset-left));
   position: relative;
   box-sizing: border-box;
 }
@@ -105,6 +128,8 @@ textarea::placeholder {
 .page {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .brand-logo {
@@ -250,6 +275,10 @@ input[type="number"]::-webkit-outer-spin-button {
   .form-grid-3 {
     grid-template-columns: 1fr;
   }
+
+  .recipe-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-stack {
@@ -354,6 +383,8 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  max-width: 100%;
+  min-width: 0;
   border-radius: var(--radius-sm);
   padding: 0.65rem 1.1rem;
   font-weight: 600;
@@ -402,6 +433,11 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  min-width: 0;
+}
+
+.btn-row > .btn {
+  flex-shrink: 1;
 }
 
 .chip {
@@ -443,7 +479,7 @@ input[type="number"]::-webkit-outer-spin-button {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100vw);
   height: calc(var(--nav-h) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
   display: flex;
@@ -467,6 +503,7 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  overflow: hidden;
 }
 
 .bottom-nav__item--active {
@@ -483,7 +520,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .cart-header-btn {
   position: fixed;
   top: calc(0.65rem + var(--safe-top));
-  right: max(1rem, calc((100vw - 480px) / 2 + 1rem));
+  right: max(env(safe-area-inset-right), calc((100vw - min(480px, 100vw)) / 2 + 0.85rem));
   z-index: 110;
   width: var(--cart-btn-size);
   height: var(--cart-btn-size);
@@ -534,8 +571,8 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .bottom-nav__fab {
-  width: 52px;
-  height: 52px;
+  width: clamp(48px, 12vw, 52px);
+  height: clamp(48px, 12vw, 52px);
   margin-top: -22px;
   border-radius: 50%;
   background: var(--accent);
@@ -566,7 +603,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .macro-hero__cal {
   margin: 0.15rem 0 0;
-  font-size: 4.5rem;
+  font-size: clamp(3.25rem, 16vw, 4.5rem);
   color: var(--accent);
 }
 
@@ -587,6 +624,7 @@ input[type="number"]::-webkit-outer-spin-button {
   justify-content: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .macro-pill {
@@ -761,6 +799,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 0;
   margin: 0;
   width: 100%;
+  min-width: 0;
 }
 
 .recipe-card-wrap {
@@ -966,10 +1005,13 @@ input[type="number"]::-webkit-outer-spin-button {
   background: var(--bg-elevated);
   border-radius: var(--radius-sm);
   margin-bottom: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tabs__btn {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: max-content;
   padding: 0.55rem 0.5rem;
   border: none;
   border-radius: 8px;
@@ -1051,10 +1093,13 @@ input[type="number"]::-webkit-outer-spin-button {
 /* Onboarding */
 .onboarding {
   min-height: 100vh;
-  padding: 2rem 1.25rem;
+  padding: calc(2rem + var(--safe-top)) max(1rem, env(safe-area-inset-right)) calc(2rem + var(--safe-bottom)) max(1rem, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
-  max-width: 480px;
+  width: 100%;
+  max-width: min(480px, 100vw);
+  min-width: 0;
+  overflow-x: hidden;
   margin: 0 auto;
 }
 
@@ -1071,6 +1116,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: var(--bg-card);
   text-align: left;
   cursor: pointer;
+  min-width: 0;
   transition: border-color 0.15s, background 0.15s;
 }
 
