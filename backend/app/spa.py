@@ -13,13 +13,19 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
     if not static_dir.is_dir():
         return
 
+    def _file(path: Path) -> FileResponse:
+        headers = {}
+        if path.name in {"index.html", "sw.js", "manifest.webmanifest"}:
+            headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return FileResponse(path, headers=headers)
+
     assets = static_dir / "assets"
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
     @app.get("/", include_in_schema=False)
     async def spa_root() -> FileResponse:
-        return FileResponse(static_dir / "index.html")
+        return _file(static_dir / "index.html")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str) -> FileResponse:
@@ -27,5 +33,5 @@ def mount_spa(app: FastAPI, static_dir: Path) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         candidate = static_dir / full_path
         if candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(static_dir / "index.html")
+            return _file(candidate)
+        return _file(static_dir / "index.html")

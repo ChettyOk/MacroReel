@@ -50,6 +50,8 @@ docker run --rm -p 8000:8000 \
 
 - Install the PWA from your browser (Add to Home Screen).
 - Share a TikTok, Instagram, or YouTube link to MacroReel (share target uses your deployed origin).
+- If the share option does not appear after a redeploy, uninstall/remove the old PWA from the device and install it again. Android/Chrome reads share target support from the installed manifest.
+- Render serves `index.html`, `sw.js`, and `manifest.webmanifest` with no-cache headers so new devices and redeploys receive the newest app shell/share config.
 - For YouTube bot errors, add `YTDLP_COOKIES_FILE` or upload cookies — see README.
 
 ## 3. Deploy on Fly.io, Railway, or a VPS
