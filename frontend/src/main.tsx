@@ -12,6 +12,9 @@ import { OnboardingPage } from "./pages/OnboardingPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RecipeDetailPage } from "./pages/RecipeDetailPage";
 import { RecipeFormPage } from "./pages/RecipeFormPage";
+import { clearStaleClientCache } from "./lib/storage";
+
+clearStaleClientCache();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

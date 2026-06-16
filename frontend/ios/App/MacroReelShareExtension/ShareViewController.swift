@@ -49,6 +49,29 @@ final class ShareViewController: UIViewController {
             return
         }
 
+        if let mediaProvider = providers.first(where: {
+            $0.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
+                || $0.hasItemConformingToTypeIdentifier(UTType.image.identifier)
+                || $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }) {
+            let typeIdentifier = [
+                UTType.movie.identifier,
+                UTType.image.identifier,
+                UTType.fileURL.identifier,
+            ].first(where: { mediaProvider.hasItemConformingToTypeIdentifier($0) }) ?? UTType.fileURL.identifier
+
+            mediaProvider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
+                if let url = item as? URL {
+                    completion(url.absoluteString)
+                } else if let text = item as? String {
+                    completion(text)
+                } else {
+                    completion(nil)
+                }
+            }
+            return
+        }
+
         completion(nil)
     }
 
