@@ -4,6 +4,25 @@ const ONBOARDING_KEY = "macroreel-onboarding-done";
 const OLD_ONBOARDING_KEY = "recipeai-onboarding-done";
 const DAILY_LOG_KEY = "macroreel-daily-log";
 const OLD_DAILY_LOG_KEY = "recipeai-daily-log";
+const CLIENT_CACHE_VERSION_KEY = "macroreel-client-cache-version";
+const CLIENT_CACHE_VERSION = "2026-06-15-capacitor-share-v2";
+const VOLATILE_CACHE_PREFIXES = [
+  "macroreel-shopping-location",
+];
+
+export function clearStaleClientCache(): void {
+  try {
+    if (localStorage.getItem(CLIENT_CACHE_VERSION_KEY) === CLIENT_CACHE_VERSION) return;
+    for (const key of Object.keys(localStorage)) {
+      if (VOLATILE_CACHE_PREFIXES.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) {
+        localStorage.removeItem(key);
+      }
+    }
+    localStorage.setItem(CLIENT_CACHE_VERSION_KEY, CLIENT_CACHE_VERSION);
+  } catch {
+    /* Storage can be unavailable in private or restricted WebViews. */
+  }
+}
 
 export type DailyLogEntry = {
   recipeId: number;
