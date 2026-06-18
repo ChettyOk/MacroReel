@@ -16,7 +16,7 @@ import { OnboardingPage } from "./pages/OnboardingPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RecipeDetailPage } from "./pages/RecipeDetailPage";
 import { RecipeFormPage } from "./pages/RecipeFormPage";
-import { loadRuntimeConfig } from "./lib/runtimeConfig";
+import { loadRuntimeConfig, readInlineRuntimeConfig } from "./lib/runtimeConfig";
 import { clearStaleClientCache } from "./lib/storage";
 
 clearStaleClientCache();
@@ -54,12 +54,32 @@ function RootApp({ googleClientId }: { googleClientId: string }) {
 
   if (!googleClientId) return tree;
 
-  return <GoogleOAuthProvider clientId={googleClientId}>{tree}</GoogleOAuthProvider>;
+  return (
+    <GoogleOAuthProvider key={googleClientId} clientId={googleClientId}>
+      {tree}
+    </GoogleOAuthProvider>
+  );
+}
+
+function renderApp(googleClientId: string) {
+  const rootEl = document.getElementById("root");
+  if (!rootEl) return;
+  createRoot(rootEl).render(
+    <StrictMode>
+      <RootApp googleClientId={googleClientId} />
+    </StrictMode>,
+  );
 }
 
 async function bootstrap() {
   const rootEl = document.getElementById("root");
   if (!rootEl) return;
+
+  const inline = readInlineRuntimeConfig();
+  if (inline) {
+    renderApp(inline.googleClientId);
+    return;
+  }
 
   const root = createRoot(rootEl);
   root.render(
@@ -69,12 +89,7 @@ async function bootstrap() {
   );
 
   const runtimeConfig = await loadRuntimeConfig();
-
-  root.render(
-    <StrictMode>
-      <RootApp googleClientId={runtimeConfig.googleClientId} />
-    </StrictMode>,
-  );
+  renderApp(runtimeConfig.googleClientId);
 }
 
 void bootstrap();
