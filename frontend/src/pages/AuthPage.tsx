@@ -1,7 +1,7 @@
-import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { SECURITY_QUESTIONS } from "../api";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { useRuntimeConfig } from "../context/RuntimeConfigContext";
 import * as api from "../api";
@@ -106,7 +106,7 @@ export function AuthPage() {
     }
   }
 
-  async function handleGoogle(response: CredentialResponse) {
+  async function handleGoogle(response: { credential?: string }) {
     if (!response.credential) {
       setError("Google sign-in did not return a token");
       return;
@@ -239,13 +239,15 @@ export function AuthPage() {
 
         {googleClientId ? (
           <div className="auth-google">
-            <GoogleLogin
-              onSuccess={handleGoogle}
-              onError={() => setError("Google sign-in was cancelled or failed")}
-              theme="filled_black"
-              size="large"
-              width="100%"
+            <GoogleSignInButton
               text={mode === "login" ? "signin_with" : "signup_with"}
+              disabled={submitting || loading}
+              onSuccess={(response) => void handleGoogle(response)}
+              onError={() =>
+                setError(
+                  "Google sign-in failed. Add this site URL to Authorized JavaScript origins in Google Cloud Console.",
+                )
+              }
             />
           </div>
         ) : (
