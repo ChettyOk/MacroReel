@@ -2244,15 +2244,18 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .auth-google {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 0.25rem;
-  width: 100%;
-}
-
-.auth-google__button {
   width: 100%;
   min-height: 44px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.auth-google > div {
+  width: 100% !important;
   display: flex;
   justify-content: center;
 }
