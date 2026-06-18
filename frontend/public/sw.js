@@ -1,6 +1,6 @@
 // Minimal service worker: required for PWA installability + share target.
 // Network-first navigation so shared URLs (?url=...) always reach the live app shell.
-const CACHE = "macroreel-v5";
+const CACHE = "macroreel-v4";
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/macroreel-icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -27,7 +27,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (request.method !== "GET") return;
-  if (url.pathname === "/app-config.json") return;
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match("/index.html").then((r) => r || fetch(request))),

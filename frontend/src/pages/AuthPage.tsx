@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { SECURITY_QUESTIONS } from "../api";
-import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { useRuntimeConfig } from "../context/RuntimeConfigContext";
 import * as api from "../api";
@@ -28,11 +28,27 @@ export function AuthPage() {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const googleRef = useRef<HTMLDivElement>(null);
+  const [googleWidth, setGoogleWidth] = useState(0);
 
   const from = (location.state as { from?: string } | null)?.from ?? "/home";
 
   const securityQuestion =
     questionPreset === CUSTOM_QUESTION ? customQuestion.trim() : questionPreset;
+
+  useEffect(() => {
+    const el = googleRef.current;
+    if (!el) return;
+    const measure = () => setGoogleWidth(Math.max(240, Math.floor(el.getBoundingClientRect().width)));
+    measure();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [mode]);
 
   if (!loading && user) {
     return <Navigate to={from} replace />;
@@ -106,7 +122,7 @@ export function AuthPage() {
     }
   }
 
-  async function handleGoogle(response: { credential?: string }) {
+  async function handleGoogle(response: CredentialResponse) {
     if (!response.credential) {
       setError("Google sign-in did not return a token");
       return;
@@ -238,17 +254,18 @@ export function AuthPage() {
         ) : null}
 
         {googleClientId ? (
-          <div className="auth-google">
-            <GoogleSignInButton
-              text={mode === "login" ? "signin_with" : "signup_with"}
-              disabled={submitting || loading}
-              onSuccess={(response) => void handleGoogle(response)}
-              onError={() =>
-                setError(
-                  "Google sign-in failed. Add this site URL to Authorized JavaScript origins in Google Cloud Console.",
-                )
-              }
-            />
+          <div className="auth-google" ref={googleRef}>
+            {googleWidth > 0 ? (
+              <GoogleLogin
+                onSuccess={handleGoogle}
+                onError={() => setError("Google sign-in was cancelled or failed")}
+                theme="outline"
+                size="large"
+                width={`${googleWidth}`}
+                shape="rectangular"
+                text={mode === "login" ? "signin_with" : "signup_with"}
+              />
+            ) : null}
           </div>
         ) : (
           <p className="auth-note">Google sign-in is not configured for this build.</p>
