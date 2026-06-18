@@ -9,6 +9,8 @@ RUN npm ci
 COPY frontend/ ./
 # Same-origin API in production (FastAPI serves /recipes, /profile, …)
 ENV VITE_API_URL=
+ARG VITE_GOOGLE_CLIENT_ID=
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
 FROM python:3.12-slim AS backend
