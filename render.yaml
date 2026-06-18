@@ -29,6 +29,10 @@ services:
         value: "false"
       - key: ENABLE_NUTRITION
         value: "true"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: JWT_SECRET
+        sync: false
     disk:
       name: macroreel-data
       mountPath: /data

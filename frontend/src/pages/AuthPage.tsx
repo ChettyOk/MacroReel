@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { SECURITY_QUESTIONS } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useRuntimeConfig } from "../context/RuntimeConfigContext";
 import * as api from "../api";
 
 type Mode = "login" | "register" | "reset";
@@ -11,6 +12,7 @@ const CUSTOM_QUESTION = "Write your own question";
 
 export function AuthPage() {
   const { user, loading, login, register, loginWithGoogle } = useAuth();
+  const { googleClientId } = useRuntimeConfig();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("login");
   const [resetStep, setResetStep] = useState<1 | 2>(1);
@@ -27,7 +29,6 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   const from = (location.state as { from?: string } | null)?.from ?? "/home";
 
   const securityQuestion =

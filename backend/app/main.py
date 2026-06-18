@@ -89,6 +89,7 @@ def health() -> dict[str, object]:
     return {
         "status": "ok",
         "ai": bool(config.GEMINI_API_KEY),
+        "google_oauth": bool(config.GOOGLE_CLIENT_ID),
         "media_pipeline": config.ENABLE_MEDIA_PIPELINE and config.ffmpeg_available(),
         "ffmpeg": config.ffmpeg_available(),
         "nutrition": config.ENABLE_NUTRITION,
@@ -97,6 +98,17 @@ def health() -> dict[str, object]:
         "tts_kokoro": config.ENABLE_KOKORO_TTS,
         "supported_video_platforms": ["tiktok", "youtube", "instagram", "facebook"],
     }
+
+
+@app.get("/app-config.json")
+def app_config() -> Response:
+    """Public runtime config for the SPA (OAuth client IDs, etc.)."""
+    payload = json.dumps({"google_client_id": config.GOOGLE_CLIENT_ID})
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 
 @app.get("/recipes", response_model=list[RecipeRead])

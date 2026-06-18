@@ -88,6 +88,21 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
 | `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
 | `EXTRA_CORS_ORIGINS` | No | Only if frontend is on a **different** domain |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth Web client ID for sign-in (also exposed to the SPA at `/app-config.json`) |
+| `JWT_SECRET` | Yes (multi-user) | Long random string for auth tokens; must stay stable across deploys |
+
+### Google sign-in on Render
+
+Set **`GOOGLE_CLIENT_ID`** on the Render service (not only `VITE_GOOGLE_CLIENT_ID`). The production Docker image loads OAuth config at **runtime** from `/app-config.json`, so you do **not** need to pass `VITE_*` vars into the Docker build.
+
+After deploy, verify:
+
+```bash
+curl -sS https://YOUR_URL/health | jq .google_oauth
+curl -sS https://YOUR_URL/app-config.json
+```
+
+Expect `google_oauth: true` and a non-empty `google_client_id`. In Google Cloud Console, add your Render URL to **Authorized JavaScript origins** (e.g. `https://macroreel-xxxx.onrender.com`).
 
 ## Split frontend + API (optional)
 
