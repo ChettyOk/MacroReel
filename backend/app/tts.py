@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import subprocess
@@ -201,6 +202,31 @@ def _synthesize_huggingface(text: str, voice: str) -> tuple[bytes, str]:
     return audio, _media_type_for_audio(audio)
 
 
+
+
+def _synthesize_edge(text: str, voice: str) -> tuple[bytes, str]:
+    try:
+        import edge_tts
+    except ImportError as e:
+        raise TTSError("edge-tts is required for KOKORO_TTS_PROVIDER=edge.") from e
+
+    async def _run() -> bytes:
+        communicate = edge_tts.Communicate(text, voice=voice or config.EDGE_TTS_VOICE)
+        chunks: list[bytes] = []
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio" and chunk.get("data"):
+                chunks.append(chunk["data"])
+        return b"".join(chunks)
+
+    try:
+        audio = asyncio.run(_run())
+    except Exception as e:  # noqa: BLE001
+        raise TTSError(f"Edge TTS failed: {e}") from e
+    if not audio:
+        raise TTSError("Edge TTS returned empty audio.")
+    return audio, "audio/mpeg"
+
+
 def _synthesize_local(text: str, voice: str) -> tuple[bytes, str]:
     try:
         import numpy as np
@@ -222,8 +248,11 @@ def _synthesize_local(text: str, voice: str) -> tuple[bytes, str]:
 
 
 def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
-    if config.KOKORO_TTS_PROVIDER == "local":
+    provider = config.KOKORO_TTS_PROVIDER
+    if provider == "local":
         return _synthesize_local(text, voice)
+    if provider == "edge":
+        return _synthesize_edge(text, voice or config.EDGE_TTS_VOICE)
     return _synthesize_huggingface(text, voice)
 
 
@@ -239,11 +268,16 @@ def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:
     if cached:
         return cached
 
-    wav_parts: list[bytes] = []
+    normalized_parts: list[tuple[bytes, str]] = []
     for chunk in _split_tts_chunks(clean):
         raw, media_type = _synthesize_provider_chunk(chunk, selected_voice)
-        wav_parts.append(_normalize_for_browser(raw, media_type)[0])
+        normalized_parts.append(_normalize_for_browser(raw, media_type))
 
-    audio, media_type = (_concat_wav_parts(wav_parts), "audio/wav")
+    if len(normalized_parts) == 1:
+        audio, media_type = normalized_parts[0]
+    else:
+        wav_parts = [part if mt == "audio/wav" else _ffmpeg_to_wav(part) for part, mt in normalized_parts]
+        audio, media_type = _concat_wav_parts(wav_parts), "audio/wav"
+
     _write_cache(clean, selected_voice, audio, media_type)
     return audio, media_type
