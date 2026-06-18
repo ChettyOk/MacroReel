@@ -484,3 +484,105 @@ def profile_row_to_base(profile) -> ProfileBase:
         allergies=_load(getattr(profile, "allergies", None)),
         dietary_prefs=_load(getattr(profile, "dietary_prefs", None)),
     )
+
+
+class UserRegister(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    password: str = Field(..., min_length=8, max_length=128)
+    name: str | None = Field(default=None, max_length=200)
+    security_question: str = Field(..., min_length=3, max_length=300)
+    security_answer: str = Field(..., min_length=2, max_length=200)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+    @field_validator("security_question", mode="before")
+    @classmethod
+    def strip_question(cls, v: str) -> str:
+        return str(v).strip()
+
+    @field_validator("security_answer", mode="before")
+    @classmethod
+    def strip_answer(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class UserLogin(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str = Field(..., min_length=10)
+
+
+class UserRead(BaseModel):
+    id: int
+    email: str
+    name: str | None = None
+    picture_url: str | None = None
+    has_password: bool = False
+    has_security_question: bool = False
+    created_at: datetime
+
+
+class ForgotPasswordLookup(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+
+class ForgotPasswordQuestion(BaseModel):
+    security_question: str
+
+
+class ForgotPasswordReset(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    security_answer: str = Field(..., min_length=2, max_length=200)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return str(v).strip().lower()
+
+    @field_validator("security_answer", mode="before")
+    @classmethod
+    def strip_answer(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class SecurityQuestionUpdate(BaseModel):
+    security_question: str = Field(..., min_length=3, max_length=300)
+    security_answer: str = Field(..., min_length=2, max_length=200)
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("security_question", mode="before")
+    @classmethod
+    def strip_question(cls, v: str) -> str:
+        return str(v).strip()
+
+    @field_validator("security_answer", mode="before")
+    @classmethod
+    def strip_answer(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead

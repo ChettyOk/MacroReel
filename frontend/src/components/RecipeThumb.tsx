@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { recipeThumbnailUrl } from "../api";
+import { fetchRecipeThumbnailObjectUrl } from "../api";
 import { platformLabel, resolveThumbnailUrl, titleHue } from "../lib/thumbnail";
 
 export type RecipeThumbProps = {
@@ -23,14 +23,36 @@ export function RecipeThumb({
   proteinG,
   variant = "card",
 }: RecipeThumbProps) {
-  const src = useMemo(() => {
-    if (recipeId != null) return recipeThumbnailUrl(recipeId);
-    return resolveThumbnailUrl(thumbnailUrl, sourceUrl);
-  }, [recipeId, thumbnailUrl, sourceUrl]);
+  const publicSrc = useMemo(
+    () => (recipeId != null ? null : resolveThumbnailUrl(thumbnailUrl, sourceUrl)),
+    [recipeId, thumbnailUrl, sourceUrl],
+  );
+  const [authSrc, setAuthSrc] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
+
   useEffect(() => {
     setImgFailed(false);
-  }, [src]);
+    if (recipeId == null) {
+      setAuthSrc(null);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    void fetchRecipeThumbnailObjectUrl(recipeId).then((url) => {
+      if (cancelled) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
+      objectUrl = url;
+      setAuthSrc(url);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [recipeId]);
+
+  const src = recipeId != null ? authSrc : publicSrc;
   const showImage = Boolean(src && !imgFailed);
   const hue = titleHue(title || "recipe");
   const initial = (title.trim()[0] || "R").toUpperCase();

@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { setUnauthorizedHandler } from "./api";
 import { BottomNav } from "./components/BottomNav";
 import { CartHeaderButton } from "./components/CartHeaderButton";
+import { useAuth } from "./context/AuthContext";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import { ShoppingCartProvider } from "./context/ShoppingCartContext";
 import { isOnboardingDone } from "./lib/storage";
@@ -11,15 +13,26 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const redirectedRef = useRef(false);
+  const { user, loading, logout } = useAuth();
 
   useEffect(() => {
-    if (!isOnboardingDone() && !location.pathname.startsWith("/onboarding")) {
+    setUnauthorizedHandler(() => logout());
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user && location.pathname !== "/login") {
+      navigate("/login", { replace: true, state: { from: location.pathname } });
+      return;
+    }
+    if (user && !isOnboardingDone(user.id) && !location.pathname.startsWith("/onboarding")) {
       navigate("/onboarding", { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [user, loading, location.pathname, navigate]);
 
   useEffect(() => {
-    if (redirectedRef.current) return;
+    if (redirectedRef.current || !user) return;
     const params = new URLSearchParams(location.search);
     const shared = [params.get("url"), params.get("text"), params.get("title")].filter(Boolean).join(" ");
     const videoUrl = extractVideoUrlFromText(shared);
@@ -27,7 +40,21 @@ export default function App() {
       redirectedRef.current = true;
       navigate(`/import?url=${encodeURIComponent(videoUrl)}`, { replace: true });
     }
-  }, [location, navigate]);
+  }, [location, navigate, user]);
+
+  if (loading) {
+    return (
+      <div className="app-shell app-shell--full">
+        <p className="page-sub" style={{ padding: "2rem", textAlign: "center" }}>
+          Loading…
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const fullBleed = location.pathname.startsWith("/onboarding");
   const hideNav = location.pathname.startsWith("/onboarding");

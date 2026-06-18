@@ -4,6 +4,7 @@ import * as api from "../api";
 import { ACTIVITY_LEVELS, SEXES } from "../api";
 import { BodyStatsFields } from "../components/BodyStatsFields";
 import { MacroRing } from "../components/MacroRing";
+import { useAuth } from "../context/AuthContext";
 import { markOnboardingDone } from "../lib/storage";
 
 const GOALS = [
@@ -14,6 +15,7 @@ const GOALS = [
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState<string>("maintain");
   const [heightCm, setHeightCm] = useState<number | null>(null);
@@ -40,7 +42,7 @@ export function OnboardingPage() {
     } catch {
       /* still let them in */
     }
-    markOnboardingDone();
+    markOnboardingDone(user?.id);
     navigate("/home", { replace: true });
     setSaving(false);
   }
@@ -59,10 +61,10 @@ export function OnboardingPage() {
         dietary_prefs: [],
       });
       setTargets(p.targets);
-      markOnboardingDone();
+      markOnboardingDone(user?.id);
       navigate("/home", { replace: true });
     } catch {
-      markOnboardingDone();
+      markOnboardingDone(user?.id);
       navigate("/home", { replace: true });
     } finally {
       setSaving(false);

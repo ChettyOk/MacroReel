@@ -1,4 +1,5 @@
 import os
+import secrets
 import shutil
 from pathlib import Path
 
@@ -108,6 +109,12 @@ YTDLP_YOUTUBE_PLAYER_CLIENTS: str = os.getenv("YTDLP_YOUTUBE_PLAYER_CLIENTS", ""
 
 # Comma-separated extra CORS origins (the Vite dev server is always allowed).
 EXTRA_CORS_ORIGINS: str = os.getenv("EXTRA_CORS_ORIGINS", "").strip()
+
+# ── Auth (JWT + Google OAuth) ──
+JWT_SECRET: str = _clean_secret(os.getenv("JWT_SECRET", "")) or secrets.token_urlsafe(32)
+JWT_ALGORITHM: str = "HS256"
+JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)) or str(60 * 24 * 7))
+GOOGLE_CLIENT_ID: str = _clean_secret(os.getenv("GOOGLE_CLIENT_ID", "") or os.getenv("VITE_GOOGLE_CLIENT_ID", ""))
 
 
 def ffmpeg_available() -> bool:

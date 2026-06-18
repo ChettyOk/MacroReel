@@ -1,14 +1,15 @@
-"""Server-side daily meal log (single-user MVP)."""
+"""Server-side daily meal log, scoped per user."""
 
 from __future__ import annotations
 
 import json
 from datetime import date, datetime, timedelta, timezone
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import DailyLogEntry
+from app.models import DailyLogEntry, User
 from app.schemas import DailyLogDay, DailyLogEntryCreate, DailyLogEntryRead, DailyLogWeekDay, Nutrition
 
 
@@ -23,11 +24,11 @@ def _parse_nutrition(raw: str) -> Nutrition:
         return Nutrition()
 
 
-def get_log_for_date(db: Session, log_date: str | None) -> DailyLogDay:
+def get_log_for_date(db: Session, user: User, log_date: str | None) -> DailyLogDay:
     d = log_date or _today()
     rows = db.scalars(
         select(DailyLogEntry)
-        .where(DailyLogEntry.log_date == d)
+        .where(DailyLogEntry.user_id == user.id, DailyLogEntry.log_date == d)
         .order_by(DailyLogEntry.logged_at.asc())
     ).all()
     entries = [
@@ -44,9 +45,10 @@ def get_log_for_date(db: Session, log_date: str | None) -> DailyLogDay:
     return DailyLogDay(date=d, entries=entries, totals=_sum_entries(entries))
 
 
-def add_entry(db: Session, body: DailyLogEntryCreate) -> DailyLogEntryRead:
+def add_entry(db: Session, user: User, body: DailyLogEntryCreate) -> DailyLogEntryRead:
     d = body.log_date or _today()
     row = DailyLogEntry(
+        user_id=user.id,
         log_date=d,
         recipe_id=body.recipe_id,
         title=body.title.strip(),
@@ -67,10 +69,10 @@ def add_entry(db: Session, body: DailyLogEntryCreate) -> DailyLogEntryRead:
     )
 
 
-def delete_entry(db: Session, entry_id: int) -> None:
+def delete_entry(db: Session, user: User, entry_id: int) -> None:
     row = db.get(DailyLogEntry, entry_id)
-    if row is None:
-        return
+    if row is None or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Log entry not found")
     db.delete(row)
     db.commit()
 
@@ -94,12 +96,12 @@ def _sum_entries(entries: list[DailyLogEntryRead]) -> Nutrition:
     )
 
 
-def week_summary(db: Session, days: int = 7) -> list[DailyLogWeekDay]:
+def week_summary(db: Session, user: User, days: int = 7) -> list[DailyLogWeekDay]:
     today = date.today()
     out: list[DailyLogWeekDay] = []
     for i in range(days - 1, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
-        day = get_log_for_date(db, d)
+        day = get_log_for_date(db, user, d)
         out.append(
             DailyLogWeekDay(
                 date=d,

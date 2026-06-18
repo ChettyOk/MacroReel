@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { DailyLogWeekDay, DailyTargets, Profile } from "../api";
 import * as api from "../api";
-import { ACTIVITY_LEVELS, ALLERGENS, DIETARY_FLAGS, GOALS, SEXES } from "../api";
+import { ACTIVITY_LEVELS, ALLERGENS, DIETARY_FLAGS, GOALS, SECURITY_QUESTIONS, SEXES } from "../api";
 import { BodyStatsFields } from "../components/BodyStatsFields";
 import { loadTodayLog } from "../lib/dailyLog";
 import { resolveBodyStats } from "../lib/bodyMetrics";
+import { useAuth } from "../context/AuthContext";
 
 const ACTIVITY_LABEL: Record<string, string> = {
   sedentary: "Sedentary",
@@ -20,7 +22,11 @@ const GOAL_LABEL: Record<string, string> = {
   gain: "Gain / build",
 };
 
+const CUSTOM_QUESTION = "Write your own question";
+
 export function ProfilePage() {
+  const navigate = useNavigate();
+  const { user, logout, refreshUser } = useAuth();
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [weightKg, setWeightKg] = useState<number | null>(null);
   const [age, setAge] = useState<number | null>(null);
@@ -37,6 +43,13 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [mealsLogged, setMealsLogged] = useState(0);
   const [week, setWeek] = useState<DailyLogWeekDay[]>([]);
+  const [questionPreset, setQuestionPreset] = useState<string>(SECURITY_QUESTIONS[0]);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [securityAnswer, setSecurityAnswer] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [securitySaved, setSecuritySaved] = useState(false);
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +114,38 @@ export function ProfilePage() {
     }
   }
 
+  async function handleSecuritySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSecurityError(null);
+    setSecuritySaved(false);
+    const securityQuestion =
+      questionPreset === CUSTOM_QUESTION ? customQuestion.trim() : questionPreset;
+    if (!securityQuestion || securityQuestion.length < 3) {
+      setSecurityError("Choose or write a security question");
+      return;
+    }
+    if (!securityAnswer.trim()) {
+      setSecurityError("Security answer is required");
+      return;
+    }
+    if (!currentPassword) {
+      setSecurityError("Enter your current password");
+      return;
+    }
+    setSecuritySaving(true);
+    try {
+      await api.updateSecurityQuestion(securityQuestion, securityAnswer.trim(), currentPassword);
+      setSecuritySaved(true);
+      setCurrentPassword("");
+      setSecurityAnswer("");
+      await refreshUser();
+    } catch (err) {
+      setSecurityError(err instanceof Error ? err.message : "Could not save security question");
+    } finally {
+      setSecuritySaving(false);
+    }
+  }
+
   if (loading) return <p className="page-sub">Loading profile…</p>;
 
   const maxWeekCal = Math.max(...week.map((d) => d.calories ?? 0), targets?.target_calories ?? 2000, 1);
@@ -108,7 +153,87 @@ export function ProfilePage() {
   return (
     <div className="page">
       <h1 className="page-title">Profile</h1>
-      <p className="page-sub">Your progress & targets — settings below.</p>
+      <p className="page-sub">Signed in as {user?.name?.trim() || user?.email}</p>
+
+      <section className="card">
+        <strong>Account</strong>
+        <p className="page-sub" style={{ marginTop: "0.35rem", marginBottom: "0.85rem" }}>
+          {user?.email}
+        </p>
+        <button
+          type="button"
+          className="btn btn--secondary btn--block"
+          onClick={() => {
+            logout();
+            navigate("/login", { replace: true });
+          }}
+        >
+          Sign out
+        </button>
+      </section>
+
+      {user?.has_password && !user.has_security_question ? (
+        <section className="card form-stack">
+          <strong>Password recovery</strong>
+          <p className="page-sub" style={{ marginTop: "0.35rem", marginBottom: "0.65rem" }}>
+            Add a security question so you can reset your password without email.
+          </p>
+          {securityError ? <div className="alert alert--error" role="alert">{securityError}</div> : null}
+          {securitySaved ? (
+            <div className="alert alert--success" role="status">Security question saved.</div>
+          ) : null}
+          <form onSubmit={handleSecuritySubmit} className="form-stack">
+            <label className="field">
+              <span className="field__label">Security question</span>
+              <select
+                className="select"
+                value={questionPreset}
+                onChange={(e) => setQuestionPreset(e.target.value)}
+              >
+                {SECURITY_QUESTIONS.map((q) => (
+                  <option key={q} value={q}>{q}</option>
+                ))}
+                <option value={CUSTOM_QUESTION}>{CUSTOM_QUESTION}</option>
+              </select>
+            </label>
+            {questionPreset === CUSTOM_QUESTION ? (
+              <label className="field">
+                <span className="field__label">Your question</span>
+                <input
+                  className="input"
+                  value={customQuestion}
+                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  required
+                />
+              </label>
+            ) : null}
+            <label className="field">
+              <span className="field__label">Security answer</span>
+              <input
+                className="input"
+                value={securityAnswer}
+                onChange={(e) => setSecurityAnswer(e.target.value)}
+                required
+                autoComplete="off"
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">Current password</span>
+              <input
+                className="input"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </label>
+            <button type="submit" className="btn btn--secondary btn--block" disabled={securitySaving}>
+              {securitySaving ? "Saving…" : "Save security question"}
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="card">
         <p style={{ margin: 0, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--accent)" }}>

@@ -41,11 +41,18 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function isOnboardingDone(): boolean {
+export function isOnboardingDone(userId?: number | null): boolean {
+  if (userId != null) {
+    return localStorage.getItem(`${ONBOARDING_KEY}:${userId}`) === "1";
+  }
   return localStorage.getItem(ONBOARDING_KEY) === "1" || localStorage.getItem(OLD_ONBOARDING_KEY) === "1";
 }
 
-export function markOnboardingDone(): void {
+export function markOnboardingDone(userId?: number | null): void {
+  if (userId != null) {
+    localStorage.setItem(`${ONBOARDING_KEY}:${userId}`, "1");
+    return;
+  }
   localStorage.setItem(ONBOARDING_KEY, "1");
   localStorage.removeItem(OLD_ONBOARDING_KEY);
 }

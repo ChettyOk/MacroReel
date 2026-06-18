@@ -2204,3 +2204,96 @@ input[type="number"]::-webkit-outer-spin-button {
     grid-template-columns: 1fr;
   }
 }
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: calc(1.5rem + var(--safe-top)) 1rem calc(1.5rem + var(--safe-bottom));
+}
+
+.auth-card {
+  width: min(100%, 26rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.auth-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.auth-title {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.auth-sub {
+  margin: 0.5rem 0 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.auth-google {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+.auth-note {
+  margin: 0 0 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-switch {
+  margin: 1rem 0 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.auth-link {
+  border: 0;
+  background: none;
+  color: var(--link);
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.auth-question {
+  margin: 0.35rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.95rem;
+}

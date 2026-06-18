@@ -3,8 +3,11 @@ uvicorn[standard]==0.34.0
 sqlalchemy==2.0.36
 pydantic==2.10.3
 google-genai>=1.0.0
+google-auth>=2.29.0
 huggingface_hub
 python-dotenv>=1.0.0
+PyJWT>=2.8.0
+bcrypt>=4.1.0
 yt-dlp>=2026.3.17  # keep current: TikTok/YouTube change often (run `pip install -U yt-dlp` if extraction breaks)
 pytest>=8.0.0
 # Note: the media pipeline (audio transcription + frame vision) also requires the
