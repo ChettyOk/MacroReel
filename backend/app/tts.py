@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import io
+import subprocess
+import tempfile
+from pathlib import Path
 
 from app import config
 
 
 class TTSError(RuntimeError):
     pass
+
+_MAX_TTS_CHARS = 1200
 
 
 def _inference_client_cls():
@@ -26,6 +31,8 @@ def _ext_for_media(media_type: str) -> str:
         return ".mp3"
     if "ogg" in mt:
         return ".ogg"
+    if "flac" in mt:
+        return ".flac"
     return ".wav"
 
 
@@ -34,6 +41,10 @@ def _media_type_for_audio(audio: bytes) -> str:
         return "audio/mpeg"
     if audio.startswith(b"OggS"):
         return "audio/ogg"
+    if audio.startswith(b"fLaC"):
+        return "audio/flac"
+    if audio.startswith(b"RIFF") and len(audio) > 12 and audio[8:12] == b"WAVE":
+        return "audio/wav"
     return "audio/wav"
 
 
@@ -44,7 +55,12 @@ def _cache_key(text: str, voice: str) -> str:
 
 def _from_cache(text: str, voice: str) -> tuple[bytes, str] | None:
     key = _cache_key(text, voice)
-    for ext, media in ((".mp3", "audio/mpeg"), (".ogg", "audio/ogg"), (".wav", "audio/wav")):
+    for ext, media in (
+        (".wav", "audio/wav"),
+        (".mp3", "audio/mpeg"),
+        (".ogg", "audio/ogg"),
+        (".flac", "audio/flac"),
+    ):
         path = config.TTS_CACHE_DIR / f"{key}{ext}"
         if path.is_file():
             try:
@@ -63,6 +79,105 @@ def _write_cache(text: str, voice: str, audio: bytes, media_type: str) -> None:
         pass
 
 
+def _split_tts_chunks(text: str, max_len: int = _MAX_TTS_CHARS) -> list[str]:
+    if len(text) <= max_len:
+        return [text]
+    parts: list[str] = []
+    buf = ""
+    for sentence in text.replace("\n", " ").split(". "):
+        piece = f"{sentence}. ".strip()
+        if not piece:
+            continue
+        if len(buf) + len(piece) + 1 <= max_len:
+            buf = f"{buf} {piece}".strip()
+        else:
+            if buf:
+                parts.append(buf)
+            buf = piece if len(piece) <= max_len else piece[:max_len]
+    if buf:
+        parts.append(buf)
+    return parts or [text[:max_len]]
+
+
+def _ffmpeg_to_wav(audio: bytes) -> bytes:
+    if not config.ffmpeg_available():
+        raise TTSError("ffmpeg is required to convert Kokoro audio for browser playback.")
+    proc = subprocess.run(
+        [
+            config.FFMPEG_BIN,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            "pipe:0",
+            "-f",
+            "wav",
+            "-acodec",
+            "pcm_s16le",
+            "pipe:1",
+        ],
+        input=audio,
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout:
+        detail = proc.stderr.decode("utf-8", errors="replace").strip() or "unknown ffmpeg error"
+        raise TTSError(f"Audio conversion failed: {detail}")
+    return proc.stdout
+
+
+def _concat_wav_parts(parts: list[bytes]) -> bytes:
+    if len(parts) == 1:
+        return parts[0]
+    if not config.ffmpeg_available():
+        raise TTSError("ffmpeg is required to stitch long Kokoro narrations.")
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        list_file = tmp_path / "concat.txt"
+        wav_paths: list[Path] = []
+        for i, part in enumerate(parts):
+            path = tmp_path / f"part-{i}.wav"
+            path.write_bytes(part)
+            wav_paths.append(path)
+        list_file.write_text("\n".join(f"file '{p.name}'" for p in wav_paths), encoding="utf-8")
+        proc = subprocess.run(
+            [
+                config.FFMPEG_BIN,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(list_file),
+                "-f",
+                "wav",
+                "-acodec",
+                "pcm_s16le",
+                "pipe:1",
+            ],
+            cwd=tmp,
+            capture_output=True,
+            timeout=180,
+            check=False,
+        )
+        if proc.returncode != 0 or not proc.stdout:
+            detail = proc.stderr.decode("utf-8", errors="replace").strip() or "unknown ffmpeg error"
+            raise TTSError(f"Audio stitching failed: {detail}")
+        return proc.stdout
+
+
+def _normalize_for_browser(audio: bytes, media_type: str) -> tuple[bytes, str]:
+    if media_type == "audio/mpeg" or audio[:3] == b"ID3" or audio[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
+        return audio, "audio/mpeg"
+    if audio.startswith(b"RIFF") and len(audio) > 12 and audio[8:12] == b"WAVE":
+        return audio, "audio/wav"
+    return _ffmpeg_to_wav(audio), "audio/wav"
+
+
 def _synthesize_huggingface(text: str, voice: str) -> tuple[bytes, str]:
     if not config.HUGGINGFACE_API_KEY:
         raise TTSError("HUGGINGFACE_API_KEY or HF_TOKEN is required for Kokoro Hugging Face TTS.")
@@ -74,8 +189,6 @@ def _synthesize_huggingface(text: str, voice: str) -> tuple[bytes, str]:
         api_key=config.HUGGINGFACE_API_KEY,
     )
     try:
-        # Mirrors:
-        # client.text_to_speech("...", model="hexgrad/Kokoro-82M")
         audio = client.text_to_speech(
             text,
             model=config.KOKORO_MODEL,
@@ -108,6 +221,12 @@ def _synthesize_local(text: str, voice: str) -> tuple[bytes, str]:
     return buf.getvalue(), "audio/wav"
 
 
+def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
+    if config.KOKORO_TTS_PROVIDER == "local":
+        return _synthesize_local(text, voice)
+    return _synthesize_huggingface(text, voice)
+
+
 def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:
     if not config.ENABLE_KOKORO_TTS:
         raise TTSError("Kokoro TTS is disabled.")
@@ -120,10 +239,11 @@ def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:
     if cached:
         return cached
 
-    if config.KOKORO_TTS_PROVIDER == "local":
-        audio, media_type = _synthesize_local(clean, selected_voice)
-    else:
-        audio, media_type = _synthesize_huggingface(clean, selected_voice)
+    wav_parts: list[bytes] = []
+    for chunk in _split_tts_chunks(clean):
+        raw, media_type = _synthesize_provider_chunk(chunk, selected_voice)
+        wav_parts.append(_normalize_for_browser(raw, media_type)[0])
 
+    audio, media_type = (_concat_wav_parts(wav_parts), "audio/wav")
     _write_cache(clean, selected_voice, audio, media_type)
     return audio, media_type

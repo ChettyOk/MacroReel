@@ -192,7 +192,11 @@ export function RecipeDetailPage() {
     setSpeaking(false);
   }
 
-  function speakWithBrowserVoice(narration: string) {
+  function speakWithBrowserVoice(narration: string, reason?: string) {
+    if (reason) {
+      setCartMsg(reason);
+      globalThis.setTimeout(() => setCartMsg(null), 3200);
+    }
     if (!("speechSynthesis" in window)) {
       setSpeaking(false);
       setCartMsg("Read-aloud is not supported in this browser.");
@@ -233,7 +237,7 @@ export function RecipeDetailPage() {
       audio.onerror = () => {
         URL.revokeObjectURL(url);
         audioRef.current = null;
-        speakWithBrowserVoice(narration);
+        speakWithBrowserVoice(narration, "AI voice could not play — using device voice.");
       };
       try {
         await audio.play();
@@ -242,8 +246,12 @@ export function RecipeDetailPage() {
         audioRef.current = null;
         throw e;
       }
-    } catch {
-      speakWithBrowserVoice(narration);
+    } catch (err) {
+      const reason =
+        err instanceof Error && err.message
+          ? `AI voice unavailable (${err.message}) — using device voice.`
+          : "AI voice unavailable — using device voice.";
+      speakWithBrowserVoice(narration, reason);
     }
   }
 
