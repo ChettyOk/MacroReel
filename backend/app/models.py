@@ -1,15 +1,31 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    google_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    picture_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    security_question: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    security_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Recipe(Base):
     __tablename__ = "recipes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     ingredients: Mapped[str] = mapped_column(Text, nullable=False)  # JSON: list[str]
     steps: Mapped[str] = mapped_column(Text, nullable=False)  # JSON: list[str]
@@ -29,11 +45,12 @@ class Recipe(Base):
 
 
 class DailyLogEntry(Base):
-    """Meals logged per day (single-user MVP)."""
+    """Meals logged per day, scoped to a user."""
 
     __tablename__ = "daily_log_entries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     log_date: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # YYYY-MM-DD
     recipe_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -43,11 +60,13 @@ class DailyLogEntry(Base):
 
 
 class Profile(Base):
-    """Single-user profile (MVP, no auth). One row, conventionally id=1."""
+    """User profile and macro targets."""
 
     __tablename__ = "profiles"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_profiles_user_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)

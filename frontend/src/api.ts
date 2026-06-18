@@ -1,3 +1,5 @@
+import { getAuthToken } from "./lib/auth";
+
 export const DIETARY_FLAGS = [
   "vegetarian",
   "vegan",
@@ -199,8 +201,151 @@ export const API_BASE =
     : "http://127.0.0.1:8000";
 const base = API_BASE;
 
+export type AuthUser = {
+  id: number;
+  email: string;
+  name: string | null;
+  picture_url: string | null;
+  has_password: boolean;
+  has_security_question: boolean;
+  created_at: string;
+};
+
+export const SECURITY_QUESTIONS = [
+  "What city were you born in?",
+  "What was your first pet's name?",
+  "What is your mother's maiden name?",
+  "What was the name of your elementary school?",
+] as const;
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const headers: Record<string, string> = { ...(extra as Record<string, string>) };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const headers = authHeaders(init?.headers);
+  const res = await fetch(`${base}${path}`, { ...init, headers });
+  if (res.status === 401 && onUnauthorized) onUnauthorized();
+  return res;
+}
+
 export function recipeThumbnailUrl(recipeId: number): string {
   return `${base}/recipes/${recipeId}/thumbnail`;
+}
+
+export async function fetchRecipeThumbnailObjectUrl(recipeId: number): Promise<string | null> {
+  const res = await apiFetch(`/recipes/${recipeId}/thumbnail`);
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export async function register(
+  email: string,
+  password: string,
+  securityQuestion: string,
+  securityAnswer: string,
+  name?: string,
+): Promise<AuthResponse> {
+  const res = await fetch(`${base}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      name: name ?? null,
+      security_question: securityQuestion,
+      security_answer: securityAnswer,
+    }),
+  });
+  await parse(res);
+  return res.json();
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${base}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  await parse(res);
+  return res.json();
+}
+
+export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
+  const res = await fetch(`${base}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  await parse(res);
+  return res.json();
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser> {
+  const res = await apiFetch("/auth/me");
+  await parse(res);
+  return res.json();
+}
+
+export async function lookupForgotPasswordQuestion(email: string): Promise<string> {
+  const res = await fetch(`${base}/auth/forgot-password/lookup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  await parse(res);
+  const data = (await res.json()) as { security_question: string };
+  return data.security_question;
+}
+
+export async function resetPasswordWithSecurityAnswer(
+  email: string,
+  securityAnswer: string,
+  newPassword: string,
+): Promise<void> {
+  const res = await fetch(`${base}/auth/forgot-password/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      security_answer: securityAnswer,
+      new_password: newPassword,
+    }),
+  });
+  await parse(res);
+}
+
+export async function updateSecurityQuestion(
+  securityQuestion: string,
+  securityAnswer: string,
+  currentPassword: string,
+): Promise<void> {
+  const res = await apiFetch("/auth/security-question", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      security_question: securityQuestion,
+      security_answer: securityAnswer,
+      current_password: currentPassword,
+    }),
+  });
+  await parse(res);
 }
 
 export type DailyLogEntry = {
@@ -261,13 +406,13 @@ async function parse(res: Response): Promise<void> {
 }
 
 export async function fetchRecipes(): Promise<Recipe[]> {
-  const res = await fetch(`${base}/recipes`);
+  const res = await apiFetch("/recipes");
   await parse(res);
   return res.json();
 }
 
 export async function fetchRecipe(id: number): Promise<Recipe> {
-  const res = await fetch(`${base}/recipes/${id}`);
+  const res = await apiFetch(`/recipes/${id}`);
   await parse(res);
   return res.json();
 }
@@ -276,7 +421,7 @@ export async function extractRecipeFromVideo(
   url: string,
   options?: { useAi?: boolean; useMedia?: boolean | null; computeNutrition?: boolean | null },
 ): Promise<ExtractFromVideoResult> {
-  const res = await fetch(`${base}/recipes/extract-from-video`, {
+  const res = await apiFetch("/recipes/extract-from-video", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -295,7 +440,7 @@ export async function computeNutrition(
   servings: number | null,
   contextText?: string | null,
 ): Promise<NutritionReport> {
-  const res = await fetch(`${base}/nutrition`, {
+  const res = await apiFetch("/nutrition", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -309,7 +454,7 @@ export async function computeNutrition(
 }
 
 export async function createRecipe(data: RecipeInput): Promise<Recipe> {
-  const res = await fetch(`${base}/recipes`, {
+  const res = await apiFetch("/recipes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -322,7 +467,7 @@ export async function updateRecipe(
   id: number,
   data: Partial<RecipeInput>,
 ): Promise<Recipe> {
-  const res = await fetch(`${base}/recipes/${id}`, {
+  const res = await apiFetch(`/recipes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -332,18 +477,18 @@ export async function updateRecipe(
 }
 
 export async function deleteRecipe(id: number): Promise<void> {
-  const res = await fetch(`${base}/recipes/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`/recipes/${id}`, { method: "DELETE" });
   await parse(res);
 }
 
 export async function getProfile(): Promise<ProfileRead> {
-  const res = await fetch(`${base}/profile`);
+  const res = await apiFetch("/profile");
   await parse(res);
   return res.json();
 }
 
 export async function saveProfile(data: Profile): Promise<ProfileRead> {
-  const res = await fetch(`${base}/profile`, {
+  const res = await apiFetch("/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -360,7 +505,7 @@ export async function fetchHealth(): Promise<HealthStatus> {
 
 export async function fetchDailyLog(logDate?: string): Promise<DailyLogDay> {
   const q = logDate ? `?log_date=${encodeURIComponent(logDate)}` : "";
-  const res = await fetch(`${base}/daily-log${q}`);
+  const res = await apiFetch(`/daily-log${q}`);
   await parse(res);
   return res.json();
 }
@@ -372,7 +517,7 @@ export async function addDailyLogEntry(data: {
   nutrition: Nutrition;
   log_date?: string;
 }): Promise<DailyLogEntry> {
-  const res = await fetch(`${base}/daily-log`, {
+  const res = await apiFetch("/daily-log", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -382,13 +527,13 @@ export async function addDailyLogEntry(data: {
 }
 
 export async function fetchDailyLogWeek(days = 7): Promise<DailyLogWeekDay[]> {
-  const res = await fetch(`${base}/daily-log/week?days=${days}`);
+  const res = await apiFetch(`/daily-log/week?days=${days}`);
   await parse(res);
   return res.json();
 }
 
 export async function refreshRecipeNutrition(id: number): Promise<Recipe> {
-  const res = await fetch(`${base}/recipes/${id}/refresh-nutrition`, { method: "POST" });
+  const res = await apiFetch(`/recipes/${id}/refresh-nutrition`, { method: "POST" });
   await parse(res);
   return res.json();
 }
@@ -398,7 +543,7 @@ export async function getInsights(
   servings: number | null,
   nutrition: NutritionReport | null,
 ): Promise<RecipeInsights> {
-  const res = await fetch(`${base}/insights`, {
+  const res = await apiFetch("/insights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ingredients, servings, nutrition }),
@@ -414,7 +559,7 @@ export async function getRecipeUpgrades(recipe: {
   servings: number | null;
   nutrition: NutritionReport | null;
 }): Promise<RecipeUpgradeResponse> {
-  const res = await fetch(`${base}/recipe-upgrades`, {
+  const res = await apiFetch("/recipe-upgrades", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(recipe),
@@ -424,7 +569,7 @@ export async function getRecipeUpgrades(recipe: {
 }
 
 export async function getGroceryPrices(ingredients: string[], location?: string | null): Promise<RecipePriceEstimate> {
-  const res = await fetch(`${base}/grocery-prices`, {
+  const res = await apiFetch("/grocery-prices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ingredients, location: location?.trim() || null }),
@@ -434,7 +579,7 @@ export async function getGroceryPrices(ingredients: string[], location?: string 
 }
 
 export async function synthesizeSpeech(text: string, voice?: string): Promise<Blob> {
-  const res = await fetch(`${base}/tts`, {
+  const res = await apiFetch("/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, voice: voice ?? null }),
