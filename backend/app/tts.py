@@ -247,12 +247,28 @@ def _synthesize_local(text: str, voice: str) -> tuple[bytes, str]:
     return buf.getvalue(), "audio/wav"
 
 
+def _is_edge_voice_name(voice: str) -> bool:
+    """True for Microsoft Edge neural voices, e.g. en-US-JennyNeural."""
+    v = voice.strip()
+    return "-" in v and v.endswith("Neural")
+
+
+def _resolve_tts_voice(voice: str | None) -> str:
+    """Pick voice for the active provider; Kokoro IDs map to EDGE_TTS_VOICE on edge."""
+    raw = (voice or "").strip()
+    if config.KOKORO_TTS_PROVIDER == "edge":
+        if raw and _is_edge_voice_name(raw):
+            return raw
+        return config.EDGE_TTS_VOICE
+    return raw or config.KOKORO_VOICE or "af_heart"
+
+
 def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
     provider = config.KOKORO_TTS_PROVIDER
     if provider == "local":
         return _synthesize_local(text, voice)
     if provider == "edge":
-        return _synthesize_edge(text, voice or config.EDGE_TTS_VOICE)
+        return _synthesize_edge(text, voice)
     return _synthesize_huggingface(text, voice)
 
 
@@ -262,7 +278,7 @@ def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:
     clean = " ".join(text.split())
     if not clean:
         raise TTSError("No text provided for TTS.")
-    selected_voice = (voice or config.KOKORO_VOICE).strip() or "af_heart"
+    selected_voice = _resolve_tts_voice(voice)
 
     cached = _from_cache(clean, selected_voice)
     if cached:

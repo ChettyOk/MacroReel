@@ -225,7 +225,7 @@ export function RecipeDetailPage() {
     if (!narration.trim()) return;
     setSpeaking(true);
     try {
-      const blob = await api.synthesizeSpeech(narration, "af_heart");
+      const blob = await api.synthesizeSpeech(narration);
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;

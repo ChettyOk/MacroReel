@@ -81,3 +81,22 @@ def test_edge_provider_uses_edge_tts(tmp_path, monkeypatch):
     assert media == "audio/mpeg"
     assert audio.startswith(b"ID3")
     assert calls["count"] == 1
+
+
+def test_edge_provider_maps_kokoro_voice_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "ENABLE_KOKORO_TTS", True)
+    monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "edge")
+    monkeypatch.setattr(config, "EDGE_TTS_VOICE", "en-US-JennyNeural")
+    monkeypatch.setattr(config, "TTS_CACHE_DIR", tmp_path)
+
+    captured: dict[str, str] = {}
+
+    def fake_edge(text: str, voice: str):
+        captured["voice"] = voice
+        return b"ID3fake-mp3", "audio/mpeg"
+
+    monkeypatch.setattr("app.tts._synthesize_edge", fake_edge)
+
+    synthesize_kokoro("hello cook mode", "af_heart")
+
+    assert captured["voice"] == "en-US-JennyNeural"
