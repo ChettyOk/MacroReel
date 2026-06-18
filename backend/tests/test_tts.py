@@ -22,7 +22,7 @@ def test_kokoro_tts_writes_and_reads_cache(tmp_path, monkeypatch):
 
     def fake_provider(text: str, voice: str):
         calls["count"] += 1
-        return f"audio:{text}:{voice}".encode(), "audio/wav"
+        return b"RIFF\x00\x00\x00\x00WAVEfake", "audio/wav"
 
     monkeypatch.setattr("app.tts._synthesize_huggingface", fake_provider)
 
@@ -30,7 +30,7 @@ def test_kokoro_tts_writes_and_reads_cache(tmp_path, monkeypatch):
     second = synthesize_kokoro("hello cook mode", "af_heart")
 
     assert first == second
-    assert first[0].startswith(b"audio:hello")
+    assert first[0].startswith(b"RIFF")
     assert calls["count"] == 1
 
 
