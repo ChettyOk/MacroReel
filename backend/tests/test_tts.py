@@ -62,6 +62,26 @@ def test_huggingface_fal_provider_uses_inference_client(monkeypatch):
     }
 
 
+def test_kokoro_provider_uses_fal_ai_inference(monkeypatch):
+    monkeypatch.setattr(config, "HUGGINGFACE_API_KEY", "hf_test")
+    monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "kokoro")
+    monkeypatch.setattr(config, "KOKORO_MODEL", "hexgrad/Kokoro-82M")
+    calls = {"client": None}
+
+    class FakeInferenceClient:
+        def __init__(self, provider: str, api_key: str):
+            calls["client"] = {"provider": provider, "api_key": api_key}
+
+        def text_to_speech(self, text: str, model: str, extra_body: dict):
+            return b"RIFFaudio"
+
+    monkeypatch.setattr("app.tts._inference_client_cls", lambda: FakeInferenceClient)
+
+    _synthesize_huggingface("hello cook mode", "af_heart")
+
+    assert calls["client"] == {"provider": "fal-ai", "api_key": "hf_test"}
+
+
 def test_edge_provider_uses_edge_tts(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ENABLE_KOKORO_TTS", True)
     monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "edge")

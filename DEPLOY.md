@@ -83,9 +83,9 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `GROCERY_PRICE_FEED_FILE` | No | JSON partner/store price feed inside the container, e.g. `/data/grocery_prices.json` |
 | `GROCERY_PRICE_FEED_URL` | No | Hosted JSON partner/store price feed URL |
 | `ENABLE_KOKORO_TTS` | No | `true` to enable server-side TTS for cook-mode narration |
-| `KOKORO_TTS_PROVIDER` | No | `edge` (free natural voice), `fal-ai`, or `local` (default `fal-ai`) |
+| `KOKORO_TTS_PROVIDER` | No | `kokoro` (Kokoro `af_heart` via Hugging Face), `edge`, `fal-ai`, or `local` (default `kokoro`) |
 | `EDGE_TTS_VOICE` | No | Voice for `edge` provider (default `en-US-JennyNeural`) |
-| `HUGGINGFACE_API_KEY` | No | Required only when `KOKORO_TTS_PROVIDER=fal-ai` |
+| `HUGGINGFACE_API_KEY` | No | Required when `KOKORO_TTS_PROVIDER=kokoro` or `fal-ai` |
 | `KOKORO_VOICE` | No | Default `af_heart` (Kokoro voice) |
 | `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
 | `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
@@ -93,7 +93,16 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `GOOGLE_CLIENT_ID` | No | Google OAuth Web client ID for sign-in (also exposed to the SPA at `/app-config.json`) |
 | `JWT_SECRET` | Yes (multi-user) | Long random string for auth tokens; must stay stable across deploys |
 
-### Free natural voice option (no Hugging Face quota)
+### Kokoro voice (recommended for cook mode)
+
+```env
+ENABLE_KOKORO_TTS=true
+KOKORO_TTS_PROVIDER=kokoro
+KOKORO_VOICE=af_heart
+HUGGINGFACE_API_KEY=hf_...
+```
+
+### Free Edge voice fallback (no Hugging Face quota)
 
 If Hugging Face free-tier limits are exhausted, switch to Edge neural voices on Render:
 
