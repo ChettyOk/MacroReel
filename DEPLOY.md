@@ -83,41 +83,25 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `GROCERY_PRICE_FEED_FILE` | No | JSON partner/store price feed inside the container, e.g. `/data/grocery_prices.json` |
 | `GROCERY_PRICE_FEED_URL` | No | Hosted JSON partner/store price feed URL |
 | `ENABLE_KOKORO_TTS` | No | `true` to enable server-side TTS for cook-mode narration |
-| `KOKORO_TTS_PROVIDER` | No | `kokoro` (native local Kokoro + Edge fallback), `edge`, `fal-ai`, or `local` (default `kokoro`) |
-| `EDGE_TTS_VOICE` | No | Voice for `edge`-only provider (default `en-US-AriaNeural`) |
-| `EDGE_TTS_FALLBACK_VOICE` | No | Edge voice when native Kokoro fails (default `en-US-AriaNeural`) |
+| `KOKORO_TTS_PROVIDER` | No | `edge` (default, free AriaNeural), `kokoro` (alias for edge), or `fal-ai` |
+| `EDGE_TTS_VOICE` | No | Edge voice (default `en-US-AriaNeural`) |
 | `HUGGINGFACE_API_KEY` | No | Required only when `KOKORO_TTS_PROVIDER=fal-ai` |
-| `KOKORO_VOICE` | No | Default `af_heart` (Kokoro voice) |
+| `KOKORO_VOICE` | No | Used only for Hugging Face Kokoro (`fal-ai` provider) |
 | `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
 | `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
 | `EXTRA_CORS_ORIGINS` | No | Only if frontend is on a **different** domain |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth Web client ID for sign-in (also exposed to the SPA at `/app-config.json`) |
 | `JWT_SECRET` | Yes (multi-user) | Long random string for auth tokens; must stay stable across deploys |
 
-### Kokoro voice (recommended for cook mode)
-
-Native Kokoro runs on the server (no Hugging Face). If it fails, Edge **AriaNeural** is used automatically.
-
-```env
-ENABLE_KOKORO_TTS=true
-KOKORO_TTS_PROVIDER=kokoro
-KOKORO_VOICE=af_heart
-EDGE_TTS_FALLBACK_VOICE=en-US-AriaNeural
-```
-
-No `HUGGINGFACE_API_KEY` needed for this path. The Docker image includes `espeak-ng` for local Kokoro.
-
-### Free Edge voice fallback (no Hugging Face quota)
-
-If Hugging Face free-tier limits are exhausted, switch to Edge neural voices on Render:
+### Cook-mode voice (Edge AriaNeural — low memory)
 
 ```env
 ENABLE_KOKORO_TTS=true
 KOKORO_TTS_PROVIDER=edge
-EDGE_TTS_VOICE=en-US-JennyNeural
+EDGE_TTS_VOICE=en-US-AriaNeural
 ```
 
-This path does not use `HUGGINGFACE_API_KEY` and still sounds natural.
+No Hugging Face key or local model needed. Uses Microsoft Edge neural TTS (free, lightweight).
 
 ### Google sign-in on Render
 
