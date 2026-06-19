@@ -18,7 +18,7 @@ WORKDIR /app
 
 # ffmpeg optional but enables deep video extract (ENABLE_MEDIA_PIPELINE=true)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg curl \
+    && apt-get install -y --no-install-recommends ffmpeg curl espeak-ng \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .

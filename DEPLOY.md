@@ -83,9 +83,10 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `GROCERY_PRICE_FEED_FILE` | No | JSON partner/store price feed inside the container, e.g. `/data/grocery_prices.json` |
 | `GROCERY_PRICE_FEED_URL` | No | Hosted JSON partner/store price feed URL |
 | `ENABLE_KOKORO_TTS` | No | `true` to enable server-side TTS for cook-mode narration |
-| `KOKORO_TTS_PROVIDER` | No | `kokoro` (Kokoro `af_heart` via Hugging Face), `edge`, `fal-ai`, or `local` (default `kokoro`) |
-| `EDGE_TTS_VOICE` | No | Voice for `edge` provider (default `en-US-JennyNeural`) |
-| `HUGGINGFACE_API_KEY` | No | Required when `KOKORO_TTS_PROVIDER=kokoro` or `fal-ai` |
+| `KOKORO_TTS_PROVIDER` | No | `kokoro` (native local Kokoro + Edge fallback), `edge`, `fal-ai`, or `local` (default `kokoro`) |
+| `EDGE_TTS_VOICE` | No | Voice for `edge`-only provider (default `en-US-AriaNeural`) |
+| `EDGE_TTS_FALLBACK_VOICE` | No | Edge voice when native Kokoro fails (default `en-US-AriaNeural`) |
+| `HUGGINGFACE_API_KEY` | No | Required only when `KOKORO_TTS_PROVIDER=fal-ai` |
 | `KOKORO_VOICE` | No | Default `af_heart` (Kokoro voice) |
 | `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
 | `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
@@ -95,12 +96,16 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 
 ### Kokoro voice (recommended for cook mode)
 
+Native Kokoro runs on the server (no Hugging Face). If it fails, Edge **AriaNeural** is used automatically.
+
 ```env
 ENABLE_KOKORO_TTS=true
 KOKORO_TTS_PROVIDER=kokoro
 KOKORO_VOICE=af_heart
-HUGGINGFACE_API_KEY=hf_...
+EDGE_TTS_FALLBACK_VOICE=en-US-AriaNeural
 ```
+
+No `HUGGINGFACE_API_KEY` needed for this path. The Docker image includes `espeak-ng` for local Kokoro.
 
 ### Free Edge voice fallback (no Hugging Face quota)
 
