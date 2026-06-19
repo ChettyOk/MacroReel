@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import io
 import subprocess
 import tempfile
 from pathlib import Path
@@ -239,28 +238,8 @@ def _synthesize_edge(text: str, voice: str) -> tuple[bytes, str]:
     return audio, "audio/mpeg"
 
 
-def _synthesize_local(text: str, voice: str) -> tuple[bytes, str]:
-    try:
-        import numpy as np
-        import soundfile as sf
-        from kokoro import KPipeline
-    except Exception as e:  # noqa: BLE001
-        raise TTSError("Local Kokoro TTS requires kokoro, soundfile, numpy, and espeak-ng.") from e
-
-    pipeline = KPipeline(lang_code=config.KOKORO_LANG_CODE)
-    chunks = []
-    for _, _, audio in pipeline(text, voice=voice):
-        chunks.append(audio)
-    if not chunks:
-        raise TTSError("Local Kokoro TTS returned empty audio.")
-    audio = np.concatenate(chunks)
-    buf = io.BytesIO()
-    sf.write(buf, audio, 24000, format="WAV")
-    return buf.getvalue(), "audio/wav"
-
-
 def _is_edge_voice_name(voice: str) -> bool:
-    """True for Microsoft Edge neural voices, e.g. en-US-JennyNeural."""
+    """True for Microsoft Edge neural voices, e.g. en-US-AriaNeural."""
     v = voice.strip()
     return "-" in v and v.endswith("Neural")
 
@@ -268,32 +247,20 @@ def _is_edge_voice_name(voice: str) -> bool:
 def _resolve_tts_voice(voice: str | None) -> str:
     """Pick voice for the active provider; Kokoro IDs map to EDGE_TTS_VOICE on edge."""
     raw = (voice or "").strip()
-    if config.KOKORO_TTS_PROVIDER == "edge":
+    if config.KOKORO_TTS_PROVIDER in ("edge", "kokoro"):
         if raw and _is_edge_voice_name(raw):
             return raw
         return config.EDGE_TTS_VOICE
     return raw or config.KOKORO_VOICE or "af_heart"
 
 
-def _synthesize_kokoro_with_edge_fallback(text: str, voice: str) -> tuple[bytes, str]:
-    """Native Kokoro (local KPipeline); falls back to Edge AriaNeural if unavailable."""
-    try:
-        return _synthesize_local(text, voice)
-    except TTSError:
-        return _synthesize_edge(text, config.EDGE_TTS_FALLBACK_VOICE)
-
-
 def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
     provider = config.KOKORO_TTS_PROVIDER
-    if provider == "kokoro":
-        return _synthesize_kokoro_with_edge_fallback(text, voice)
-    if provider == "local":
-        return _synthesize_local(text, voice)
-    if provider == "edge":
+    if provider in ("edge", "kokoro"):
         return _synthesize_edge(text, voice)
     if _uses_kokoro_huggingface():
         return _synthesize_huggingface(text, voice)
-    return _synthesize_huggingface(text, voice)
+    return _synthesize_edge(text, voice)
 
 
 def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:

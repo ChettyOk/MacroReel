@@ -95,11 +95,8 @@ GROCERY_PRICE_CACHE_TTL_SEC: int = int(os.getenv("GROCERY_PRICE_CACHE_TTL_SEC", 
 
 # ── Text-to-speech: optional Kokoro cook-mode narration ──
 ENABLE_KOKORO_TTS: bool = _flag("ENABLE_KOKORO_TTS", False)
-KOKORO_TTS_PROVIDER: str = os.getenv("KOKORO_TTS_PROVIDER", "kokoro").strip().lower() or "kokoro"
+KOKORO_TTS_PROVIDER: str = os.getenv("KOKORO_TTS_PROVIDER", "edge").strip().lower() or "edge"
 EDGE_TTS_VOICE: str = os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural").strip() or "en-US-AriaNeural"
-EDGE_TTS_FALLBACK_VOICE: str = (
-    os.getenv("EDGE_TTS_FALLBACK_VOICE", "en-US-AriaNeural").strip() or "en-US-AriaNeural"
-)
 KOKORO_MODEL: str = os.getenv("KOKORO_MODEL", "hexgrad/Kokoro-82M").strip()
 KOKORO_VOICE: str = os.getenv("KOKORO_VOICE", "af_heart").strip() or "af_heart"
 KOKORO_LANG_CODE: str = os.getenv("KOKORO_LANG_CODE", "a").strip() or "a"
