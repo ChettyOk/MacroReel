@@ -22,7 +22,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void handleIncomingIntent(Intent intent) {
-        if (intent == null || getBridge() == null || getBridge().getWebView() == null) {
+        if (intent == null) {
             return;
         }
 
@@ -35,14 +35,72 @@ public class MainActivity extends BridgeActivity {
                 streamUri(intent)
             );
         } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
+            Uri data = intent.getData();
+            if ("macroreel".equals(data.getScheme()) && "import".equals(data.getHost())) {
+                String urlParam = data.getQueryParameter("url");
+                if (urlParam != null && !urlParam.trim().isEmpty()) {
+                    dispatchImportDeepLink(Uri.encode(urlParam.trim()));
+                } else {
+                    scheduleImportNavigation("https://localhost/import");
+                }
+                dispatchUrlOpenToBridge(intent);
+                return;
+            }
             sharedText = intent.getDataString();
         }
 
-        String importUrl = "https://localhost/import";
-        if (sharedText != null && !sharedText.trim().isEmpty()) {
-            importUrl += "?url=" + Uri.encode(sharedText.trim());
+        if (sharedText == null || sharedText.trim().isEmpty()) {
+            return;
         }
-        getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(importUrl));
+
+        String encoded = Uri.encode(sharedText.trim());
+        dispatchImportDeepLink(encoded);
+    }
+
+    private void dispatchImportDeepLink(String encodedUrlParam) {
+        String importUrl = "https://localhost/import?url=" + encodedUrlParam;
+        Uri deepLink = Uri.parse("macroreel://import?url=" + encodedUrlParam);
+
+        Intent viewIntent = new Intent(Intent.ACTION_VIEW, deepLink);
+        setIntent(viewIntent);
+        dispatchUrlOpenToBridge(viewIntent);
+        scheduleImportNavigation(importUrl);
+    }
+
+    private void dispatchUrlOpenToBridge(Intent intent) {
+        Runnable dispatch = new Runnable() {
+            private int attempts = 0;
+
+            @Override
+            public void run() {
+                if (getBridge() != null) {
+                    getBridge().onNewIntent(intent);
+                    return;
+                }
+                if (attempts++ < 80) {
+                    getWindow().getDecorView().postDelayed(this, 75);
+                }
+            }
+        };
+        getWindow().getDecorView().post(dispatch);
+    }
+
+    private void scheduleImportNavigation(String importUrl) {
+        Runnable load = new Runnable() {
+            private int attempts = 0;
+
+            @Override
+            public void run() {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().loadUrl(importUrl);
+                    return;
+                }
+                if (attempts++ < 80) {
+                    getWindow().getDecorView().postDelayed(this, 75);
+                }
+            }
+        };
+        getWindow().getDecorView().post(load);
     }
 
     private String firstNonEmpty(String... values) {

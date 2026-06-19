@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
+    "@capacitor/share": "^8.0.1",
     "@react-oauth/google": "^0.12.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
