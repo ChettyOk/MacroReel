@@ -17,6 +17,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { RecipeDetailPage } from "./pages/RecipeDetailPage";
 import { RecipeFormPage } from "./pages/RecipeFormPage";
 import { loadRuntimeConfig } from "./lib/runtimeConfig";
+import { isNativeApp } from "./lib/platform";
 import { clearStaleClientCache } from "./lib/storage";
 
 clearStaleClientCache();
@@ -79,7 +80,7 @@ async function bootstrap() {
 
 void bootstrap();
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !isNativeApp()) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   });

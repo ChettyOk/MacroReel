@@ -14,6 +14,7 @@ import type { PortionInput } from "../portion";
 import { useFavorites } from "../context/FavoritesContext";
 import { useShoppingCart } from "../context/ShoppingCartContext";
 import { platformOpenLabel } from "../lib/videoUrl";
+import { canShareRecipe, shareRecipe } from "../lib/shareRecipe";
 import { portionNutrition } from "../portion";
 
 type Tab = "nutrition" | "cook" | "upgrades" | "original";
@@ -74,6 +75,7 @@ export function RecipeDetailPage() {
   const [doneSteps, setDoneSteps] = useState<Set<number>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [cartMsg, setCartMsg] = useState<string | null>(null);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const [cookVoice, setCookVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [showDeletePrompt, setShowDeletePrompt] = useState(false);
@@ -318,7 +320,33 @@ export function RecipeDetailPage() {
         </div>
       ) : null}
 
+      {shareMsg ? (
+        <div className="alert alert--success" role="status" style={{ marginBottom: "0.75rem" }}>
+          {shareMsg}
+        </div>
+      ) : null}
+
       <div className="btn-row" style={{ margin: "1rem 0" }}>
+        {canShareRecipe() ? (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            style={{ flex: 1 }}
+            onClick={() => {
+              void shareRecipe(recipe).then((result) => {
+                if (result === "shared") {
+                  setShareMsg("Ready to share — pick an app from the share sheet.");
+                  window.setTimeout(() => setShareMsg(null), 2800);
+                } else if (result === "unavailable") {
+                  setShareMsg("Sharing is not available on this device.");
+                  window.setTimeout(() => setShareMsg(null), 2800);
+                }
+              });
+            }}
+          >
+            Share recipe
+          </button>
+        ) : null}
         <button type="button" className="btn btn--secondary" style={{ flex: 1 }} onClick={() => navigate(`/edit/${recipe.id}`)}>
           Edit recipe
         </button>

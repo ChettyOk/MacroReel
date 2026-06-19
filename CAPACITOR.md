@@ -96,9 +96,30 @@ Then select a simulator/device in Xcode and press Run.
 - Backend CORS already allows Capacitor origins.
 - For production store releases, create proper PNG app icons and splash assets in Android Studio/Xcode.
 - Android native share receive is wired for text shares and TikTok/Instagram/YouTube links. Shared text opens MacroReel at `/import` with the shared URL prefilled.
-- iOS native share receive is wired through the `MacroReelShareExtension` target. Shared text/URLs are saved through the App Group `group.com.chettyok.macroreel`, then the main app opens `/import`.
+- iOS native share receive is wired through the `MacroReelShareExtension` target. Shared text/URLs open `/import` via the `macroreel://import` deep link and Capacitor `App` plugin.
+- Share **out** from a saved recipe uses `@capacitor/share` on native (iOS Share Sheet / Android Share Intent) and the Web Share API in the browser.
 
-## 8. iOS Share Extension Setup
+## 9. Share Flows
+
+### Share a recipe out (WhatsApp, Notes, etc.)
+
+On recipe detail, tap **Share recipe**. Native builds use `@capacitor/share`; the browser uses `navigator.share` when available.
+
+Set `VITE_WEB_URL` in `.env.capacitor` so shared links point at your deployed site, for example:
+
+```env
+VITE_WEB_URL=https://your-macroreel-service.onrender.com
+```
+
+### Share a TikTok/Instagram link into MacroReel
+
+1. **Android** — Share from TikTok → choose MacroReel. The app opens `/import` with the URL prefilled and extraction starts automatically.
+2. **iOS** — Share from TikTok → MacroReel (requires App Group setup below). Same `/import` flow via `App.addListener('appUrlOpen')`.
+3. **PWA (installed)** — Share target in the browser opens `/import` through the service worker.
+
+JavaScript listens for native deep links in `frontend/src/lib/nativeImport.ts`.
+
+## 10. iOS Share Extension Setup
 
 The repo includes the extension target, but Apple requires App Groups to be enabled on your real signing team:
 

@@ -6,6 +6,7 @@ import { CartHeaderButton } from "./components/CartHeaderButton";
 import { useAuth } from "./context/AuthContext";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import { ShoppingCartProvider } from "./context/ShoppingCartContext";
+import { setupNativeImportListener } from "./lib/nativeImport";
 import { isOnboardingDone } from "./lib/storage";
 import { extractVideoUrlFromText } from "./lib/videoUrl";
 
@@ -23,13 +24,18 @@ export default function App() {
   useEffect(() => {
     if (loading) return;
     if (!user && location.pathname !== "/login") {
-      navigate("/login", { replace: true, state: { from: location.pathname } });
+      const redirectTo = `${location.pathname}${location.search}`;
+      navigate("/login", { replace: true, state: { from: redirectTo } });
       return;
     }
     if (user && !isOnboardingDone(user.id) && !location.pathname.startsWith("/onboarding")) {
       navigate("/onboarding", { replace: true });
     }
-  }, [user, loading, location.pathname, navigate]);
+  }, [user, loading, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    return setupNativeImportListener(navigate);
+  }, [navigate]);
 
   useEffect(() => {
     if (redirectedRef.current || !user) return;

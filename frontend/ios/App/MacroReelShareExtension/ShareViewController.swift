@@ -77,7 +77,13 @@ final class ShareViewController: UIViewController {
 
     private func openMacroReel() {
         DispatchQueue.main.async {
-            guard let url = URL(string: "macroreel://import") else {
+            let cleaned = UserDefaults(suiteName: self.appGroupId)?.string(forKey: self.sharedTextKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            UserDefaults(suiteName: self.appGroupId)?.removeObject(forKey: self.sharedTextKey)
+
+            let encoded = cleaned.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            let urlString = encoded.isEmpty ? "macroreel://import" : "macroreel://import?url=\(encoded)"
+            guard let url = URL(string: urlString) else {
                 self.extensionContext?.completeRequest(returningItems: nil)
                 return
             }
