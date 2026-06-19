@@ -182,13 +182,13 @@ def _normalize_for_browser(audio: bytes, media_type: str) -> tuple[bytes, str]:
 def _hf_inference_provider() -> str:
     """Map app provider names to huggingface_hub InferenceClient provider ids."""
     p = config.KOKORO_TTS_PROVIDER
-    if p in ("kokoro", "huggingface", "hf"):
+    if p in ("huggingface", "hf"):
         return "fal-ai"
     return p
 
 
 def _uses_kokoro_huggingface() -> bool:
-    return config.KOKORO_TTS_PROVIDER in ("kokoro", "fal-ai", "huggingface", "hf")
+    return config.KOKORO_TTS_PROVIDER in ("fal-ai", "huggingface", "hf")
 
 
 def _synthesize_huggingface(text: str, voice: str) -> tuple[bytes, str]:
@@ -275,8 +275,18 @@ def _resolve_tts_voice(voice: str | None) -> str:
     return raw or config.KOKORO_VOICE or "af_heart"
 
 
+def _synthesize_kokoro_with_edge_fallback(text: str, voice: str) -> tuple[bytes, str]:
+    """Native Kokoro (local KPipeline); falls back to Edge AriaNeural if unavailable."""
+    try:
+        return _synthesize_local(text, voice)
+    except TTSError:
+        return _synthesize_edge(text, config.EDGE_TTS_FALLBACK_VOICE)
+
+
 def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
     provider = config.KOKORO_TTS_PROVIDER
+    if provider == "kokoro":
+        return _synthesize_kokoro_with_edge_fallback(text, voice)
     if provider == "local":
         return _synthesize_local(text, voice)
     if provider == "edge":

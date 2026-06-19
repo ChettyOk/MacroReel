@@ -1,5 +1,5 @@
 import app.config as config
-from app.tts import TTSError, _synthesize_huggingface, synthesize_kokoro
+from app.tts import TTSError, _synthesize_huggingface, _synthesize_kokoro_with_edge_fallback, synthesize_kokoro
 
 
 def test_kokoro_tts_disabled(monkeypatch):
@@ -62,24 +62,49 @@ def test_huggingface_fal_provider_uses_inference_client(monkeypatch):
     }
 
 
-def test_kokoro_provider_uses_fal_ai_inference(monkeypatch):
-    monkeypatch.setattr(config, "HUGGINGFACE_API_KEY", "hf_test")
+def test_kokoro_provider_uses_local_with_edge_fallback(monkeypatch):
     monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "kokoro")
-    monkeypatch.setattr(config, "KOKORO_MODEL", "hexgrad/Kokoro-82M")
-    calls = {"client": None}
+    monkeypatch.setattr(config, "EDGE_TTS_FALLBACK_VOICE", "en-US-AriaNeural")
+    calls: list[str] = []
 
-    class FakeInferenceClient:
-        def __init__(self, provider: str, api_key: str):
-            calls["client"] = {"provider": provider, "api_key": api_key}
+    def fake_local(text: str, voice: str):
+        calls.append("local")
+        raise TTSError("Local Kokoro unavailable in test.")
 
-        def text_to_speech(self, text: str, model: str, extra_body: dict):
-            return b"RIFFaudio"
+    def fake_edge(text: str, voice: str):
+        calls.append(f"edge:{voice}")
+        return b"ID3fake-mp3", "audio/mpeg"
 
-    monkeypatch.setattr("app.tts._inference_client_cls", lambda: FakeInferenceClient)
+    monkeypatch.setattr("app.tts._synthesize_local", fake_local)
+    monkeypatch.setattr("app.tts._synthesize_edge", fake_edge)
 
-    _synthesize_huggingface("hello cook mode", "af_heart")
+    audio, media = _synthesize_kokoro_with_edge_fallback("hello cook mode", "af_heart")
 
-    assert calls["client"] == {"provider": "fal-ai", "api_key": "hf_test"}
+    assert calls == ["local", "edge:en-US-AriaNeural"]
+    assert media == "audio/mpeg"
+    assert audio.startswith(b"ID3")
+
+
+def test_kokoro_provider_prefers_local_when_available(monkeypatch):
+    monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "kokoro")
+    calls: list[str] = []
+
+    def fake_local(text: str, voice: str):
+        calls.append("local")
+        return b"RIFF\x00\x00\x00\x00WAVEfake", "audio/wav"
+
+    def fake_edge(text: str, voice: str):
+        calls.append("edge")
+        return b"ID3fake-mp3", "audio/mpeg"
+
+    monkeypatch.setattr("app.tts._synthesize_local", fake_local)
+    monkeypatch.setattr("app.tts._synthesize_edge", fake_edge)
+
+    audio, media = _synthesize_kokoro_with_edge_fallback("hello", "af_heart")
+
+    assert calls == ["local"]
+    assert media == "audio/wav"
+    assert audio.startswith(b"RIFF")
 
 
 def test_edge_provider_uses_edge_tts(tmp_path, monkeypatch):
