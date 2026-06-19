@@ -13,7 +13,7 @@ final class ShareViewController: UIViewController {
             if !cleaned.isEmpty {
                 UserDefaults(suiteName: self.appGroupId)?.set(cleaned, forKey: self.sharedTextKey)
             }
-            self.openMacroReel()
+            self.openMacroReel(with: cleaned)
         }
     }
 
@@ -25,80 +25,55 @@ final class ShareViewController: UIViewController {
 
         let providers = items.flatMap { $0.attachments ?? [] }
         if providers.isEmpty {
-            completion(nil)
+            completion(items.compactMap { $0.attributedContentText?.string }.joined(separator: " ").nilIfEmpty())
             return
         }
 
-        if let urlProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
-            urlProvider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
-                if let url = item as? URL {
-                    completion(url.absoluteString)
-                } else if let text = item as? String {
-                    completion(text)
-                } else {
-                    completion(nil)
+        let typeOrder: [String] = [
+            UTType.url.identifier,
+            UTType.plainText.identifier,
+            UTType.text.identifier,
+            UTType.fileURL.identifier,
+            UTType.movie.identifier,
+            UTType.image.identifier,
+        ]
+
+        for typeId in typeOrder {
+            if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(typeId) }) {
+                provider.loadItem(forTypeIdentifier: typeId, options: nil) { item, _ in
+                    if let url = item as? URL {
+                        completion(url.absoluteString)
+                    } else if let text = item as? String {
+                        completion(text)
+                    } else if let data = item as? Data, let text = String(data: data, encoding: .utf8) {
+                        completion(text)
+                    } else {
+                        completion(nil)
+                    }
                 }
+                return
             }
-            return
-        }
-
-        if let textProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
-            textProvider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
-                completion(item as? String)
-            }
-            return
-        }
-
-        if let mediaProvider = providers.first(where: {
-            $0.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
-                || $0.hasItemConformingToTypeIdentifier(UTType.image.identifier)
-                || $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-        }) {
-            let typeIdentifier = [
-                UTType.movie.identifier,
-                UTType.image.identifier,
-                UTType.fileURL.identifier,
-            ].first(where: { mediaProvider.hasItemConformingToTypeIdentifier($0) }) ?? UTType.fileURL.identifier
-
-            mediaProvider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
-                if let url = item as? URL {
-                    completion(url.absoluteString)
-                } else if let text = item as? String {
-                    completion(text)
-                } else {
-                    completion(nil)
-                }
-            }
-            return
         }
 
         completion(nil)
     }
 
-    private func openMacroReel() {
-        DispatchQueue.main.async {
-            let cleaned = UserDefaults(suiteName: self.appGroupId)?.string(forKey: self.sharedTextKey)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            UserDefaults(suiteName: self.appGroupId)?.removeObject(forKey: self.sharedTextKey)
-
-            let encoded = cleaned.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            let urlString = encoded.isEmpty ? "macroreel://import" : "macroreel://import?url=\(encoded)"
-            guard let url = URL(string: urlString) else {
-                self.extensionContext?.completeRequest(returningItems: nil)
-                return
-            }
-
-            var responder: UIResponder? = self
-            let selector = NSSelectorFromString("openURL:")
-            while let current = responder {
-                if current.responds(to: selector) {
-                    _ = current.perform(selector, with: url)
-                    break
-                }
-                responder = current.next
-            }
-
-            self.extensionContext?.completeRequest(returningItems: nil)
+    private func openMacroReel(with sharedText: String) {
+        let encoded = sharedText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let urlString = encoded.isEmpty ? "macroreel://import" : "macroreel://import?url=\(encoded)"
+        guard let url = URL(string: urlString) else {
+            extensionContext?.completeRequest(returningItems: nil)
+            return
         }
+
+        extensionContext?.open(url, completionHandler: { [weak self] _ in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        })
+    }
+}
+
+private extension String {
+    func nilIfEmpty() -> String? {
+        isEmpty ? nil : self
     }
 }

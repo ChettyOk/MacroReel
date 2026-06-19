@@ -179,11 +179,23 @@ def _normalize_for_browser(audio: bytes, media_type: str) -> tuple[bytes, str]:
     return _ffmpeg_to_wav(audio), "audio/wav"
 
 
+def _hf_inference_provider() -> str:
+    """Map app provider names to huggingface_hub InferenceClient provider ids."""
+    p = config.KOKORO_TTS_PROVIDER
+    if p in ("kokoro", "huggingface", "hf"):
+        return "fal-ai"
+    return p
+
+
+def _uses_kokoro_huggingface() -> bool:
+    return config.KOKORO_TTS_PROVIDER in ("kokoro", "fal-ai", "huggingface", "hf")
+
+
 def _synthesize_huggingface(text: str, voice: str) -> tuple[bytes, str]:
     if not config.HUGGINGFACE_API_KEY:
         raise TTSError("HUGGINGFACE_API_KEY or HF_TOKEN is required for Kokoro Hugging Face TTS.")
 
-    provider = config.KOKORO_TTS_PROVIDER if config.KOKORO_TTS_PROVIDER != "huggingface" else "fal-ai"
+    provider = _hf_inference_provider()
     InferenceClient = _inference_client_cls()
     client = InferenceClient(
         provider=provider,
@@ -269,6 +281,8 @@ def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
         return _synthesize_local(text, voice)
     if provider == "edge":
         return _synthesize_edge(text, voice)
+    if _uses_kokoro_huggingface():
+        return _synthesize_huggingface(text, voice)
     return _synthesize_huggingface(text, voice)
 
 

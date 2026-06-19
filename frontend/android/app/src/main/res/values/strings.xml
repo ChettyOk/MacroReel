@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">MacroReel</string>
     <string name="title_activity_main">MacroReel</string>
+    <string name="share_target_label">Import to MacroReel</string>
     <string name="package_name">com.chettyok.macroreel</string>
     <string name="custom_url_scheme">com.chettyok.macroreel</string>
 </resources>

@@ -113,11 +113,17 @@ VITE_WEB_URL=https://your-macroreel-service.onrender.com
 
 ### Share a TikTok/Instagram link into MacroReel
 
-1. **Android** — Share from TikTok → choose MacroReel. The app opens `/import` with the URL prefilled and extraction starts automatically.
-2. **iOS** — Share from TikTok → MacroReel (requires App Group setup below). Same `/import` flow via `App.addListener('appUrlOpen')`.
+1. **Android** — Share from TikTok → look for **Import to MacroReel** in the share sheet. Requires a fresh native install (`npm run cap:build` then Run in Android Studio).
+2. **iOS** — Share from TikTok → scroll the share sheet → tap **More** → enable **MacroReel** → choose MacroReel. Requires App Group setup below.
 3. **PWA (installed)** — Share target in the browser opens `/import` through the service worker.
 
 JavaScript listens for native deep links in `frontend/src/lib/nativeImport.ts`.
+
+**If MacroReel does not appear in TikTok/Instagram share sheet:**
+
+- Confirm you are using the **native app** from Android Studio/Xcode, not the website in Safari/Chrome.
+- **Android:** uninstall the old APK, rebuild with `npm run cap:build`, reinstall. The share target label is **Import to MacroReel**.
+- **iOS:** In the share sheet tap **Edit Actions** and enable MacroReel. Both App and Share Extension targets need App Group `group.com.chettyok.macroreel` on your signing team.
 
 ## 10. iOS Share Extension Setup
 
