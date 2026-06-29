@@ -105,6 +105,9 @@ TTS_CACHE_DIR = _writable_dir(Path(os.getenv("TTS_CACHE_DIR", str(DATA_DIR / "tt
 
 # ── yt-dlp cookies / YouTube hardening (see README) ──
 YTDLP_COOKIES_FILE: str = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+# Paste a Netscape cookies.txt body directly (handy on Render where you can't upload files).
+# Accepts raw text or base64-encoded text. Written to DATA_DIR at runtime.
+YTDLP_COOKIES_CONTENT: str = os.getenv("YTDLP_COOKIES_CONTENT", "")
 YTDLP_COOKIES_FROM_BROWSER: str = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip()
 YTDLP_YOUTUBE_PLAYER_CLIENTS: str = os.getenv("YTDLP_YOUTUBE_PLAYER_CLIENTS", "").strip()
 
