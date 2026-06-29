@@ -66,9 +66,26 @@ final class ShareViewController: UIViewController {
             return
         }
 
-        extensionContext?.open(url, completionHandler: { [weak self] _ in
+        DispatchQueue.main.async { [weak self] in
+            self?.launchHostApp(url: url)
             self?.extensionContext?.completeRequest(returningItems: nil)
-        })
+        }
+    }
+
+    /// Open the host app from a Share Extension. `extensionContext.open` is not
+    /// reliable for share extensions, so walk the responder chain to `openURL:`.
+    private func launchHostApp(url: URL) {
+        var responder: UIResponder? = self
+        let selector = NSSelectorFromString("openURL:")
+        while let current = responder {
+            if current.responds(to: selector) {
+                _ = current.perform(selector, with: url)
+                return
+            }
+            responder = current.next
+        }
+        // Fallback: try the extension context API as a last resort.
+        extensionContext?.open(url, completionHandler: nil)
     }
 }
 

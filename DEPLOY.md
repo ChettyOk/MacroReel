@@ -52,7 +52,7 @@ docker run --rm -p 8000:8000 \
 - Share a TikTok, Instagram, or YouTube link to MacroReel (share target uses your deployed origin).
 - If the share option does not appear after a redeploy, uninstall/remove the old PWA from the device and install it again. Android/Chrome reads share target support from the installed manifest.
 - Render serves `index.html`, `sw.js`, and `manifest.webmanifest` with no-cache headers so new devices and redeploys receive the newest app shell/share config.
-- For YouTube bot errors, add `YTDLP_COOKIES_FILE` or upload cookies — see README.
+- For YouTube bot errors on Render, paste your cookies.txt into `YTDLP_COOKIES_CONTENT` (raw or base64). Do **not** use `YTDLP_COOKIES_FILE` on Render unless the file is baked into the image — the container has no `cookies/` folder. See README.
 
 ## 3. Deploy on Fly.io, Railway, or a VPS
 
@@ -88,7 +88,9 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `HUGGINGFACE_API_KEY` | No | Required only when `KOKORO_TTS_PROVIDER=fal-ai` |
 | `KOKORO_VOICE` | No | Used only for Hugging Face Kokoro (`fal-ai` provider) |
 | `TTS_CACHE_DIR` | No | Default `/data/tts` in production |
-| `YTDLP_COOKIES_FILE` | No | Path inside container for YouTube cookies |
+| `YTDLP_COOKIES_FILE` | No | Path to a Netscape cookies.txt (local dev; file must exist in the container) |
+| `YTDLP_COOKIES_CONTENT` | No | Paste cookies.txt body (raw or base64) — best for Render; written to `DATA_DIR` at runtime |
+| `YTDLP_COOKIES_FROM_BROWSER` | No | e.g. `chrome` — reads cookies from a local browser (dev machines only) |
 | `EXTRA_CORS_ORIGINS` | No | Only if frontend is on a **different** domain |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth Web client ID for sign-in (also exposed to the SPA at `/app-config.json`) |
 | `JWT_SECRET` | Yes (multi-user) | Long random string for auth tokens; must stay stable across deploys |

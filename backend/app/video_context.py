@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import http.cookiejar
+import logging
 import re
 import urllib.error
 import urllib.request
@@ -14,11 +17,15 @@ import yt_dlp
 
 from app.config import (
     BACKEND_DIR,
+    DATA_DIR,
+    YTDLP_COOKIES_CONTENT,
     YTDLP_COOKIES_FILE,
     YTDLP_COOKIES_FROM_BROWSER,
     YTDLP_YOUTUBE_PLAYER_CLIENTS,
 )
 from app.thumbnail import pick_best_thumbnail
+
+logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_CHARS = 18_000
 
@@ -28,20 +35,65 @@ _SUB_UA = (
 )
 
 
+def _normalize_cookies_text(raw: str) -> str:
+    """Accept raw cookies.txt text or base64-encoded text; return Netscape text."""
+    text = raw.strip()
+    if not text:
+        return ""
+    # If it doesn't already look like a Netscape cookie jar, try base64.
+    if "\t" not in text and "# Netscape" not in text and "# HTTP Cookie File" not in text:
+        compact = "".join(text.split())
+        try:
+            decoded = base64.b64decode(compact, validate=True).decode("utf-8")
+            if decoded.strip():
+                text = decoded
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            pass
+    if not text.startswith("#"):
+        text = "# Netscape HTTP Cookie File\n" + text
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+def _cookies_file_from_content() -> Path | None:
+    """Materialize YTDLP_COOKIES_CONTENT to a file on the persistent disk."""
+    text = _normalize_cookies_text(YTDLP_COOKIES_CONTENT)
+    if not text:
+        return None
+    target = DATA_DIR / "yt-dlp-cookies.txt"
+    try:
+        target.write_text(text, encoding="utf-8")
+        return target
+    except OSError as e:  # noqa: BLE001
+        logger.warning("Could not write YTDLP_COOKIES_CONTENT to %s: %s", target, e)
+        return None
+
+
 def _yt_dlp_cookie_options() -> dict[str, Any]:
     """Optional cookies so YouTube and other sites accept yt-dlp (bot / sign-in walls)."""
     extra: dict[str, Any] = {}
+
+    content_file = _cookies_file_from_content()
+    if content_file is not None:
+        extra["cookiefile"] = str(content_file.resolve())
+        return extra
+
     if YTDLP_COOKIES_FILE:
         raw = YTDLP_COOKIES_FILE.strip().strip('"').strip("'")
         p = Path(raw)
         if not p.is_absolute():
             p = BACKEND_DIR / p
         if not p.is_file():
-            raise ValueError(
-                f"YTDLP_COOKIES_FILE is not a readable file: {p}. "
-                "Export a Netscape cookies.txt for youtube.com (see yt-dlp wiki), "
-                "or set YTDLP_COOKIES_FROM_BROWSER instead."
+            # Don't hard-fail the whole import (e.g. TikTok/IG don't need cookies).
+            # Warn so YouTube bot walls surface a clear, actionable message instead.
+            logger.warning(
+                "YTDLP_COOKIES_FILE is not a readable file: %s. "
+                "Continuing without cookies. Paste cookies via YTDLP_COOKIES_CONTENT "
+                "or set YTDLP_COOKIES_FROM_BROWSER to fix YouTube bot checks.",
+                p,
             )
+            return extra
         extra["cookiefile"] = str(p.resolve())
         return extra
 
