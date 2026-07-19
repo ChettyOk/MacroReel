@@ -5,7 +5,7 @@ from __future__ import annotations
 from urllib.parse import parse_qs, urlparse
 
 SUPPORTED_PLATFORMS = ("tiktok", "youtube", "instagram", "facebook")
-_PLATFORM_HINT = "Paste a TikTok, YouTube, or Instagram video link."
+_PLATFORM_HINT = "Paste a TikTok, YouTube, Instagram, or Facebook video link."
 
 
 def detect_platform(url: str) -> str:

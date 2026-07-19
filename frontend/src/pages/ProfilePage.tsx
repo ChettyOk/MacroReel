@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { DailyLogWeekDay, DailyTargets, Profile } from "../api";
 import * as api from "../api";
-import { ACTIVITY_LEVELS, ALLERGENS, DIETARY_FLAGS, GOALS, SECURITY_QUESTIONS, SEXES } from "../api";
+import { ACTIVITY_LEVELS, ALLERGENS, DIETARY_FLAGS, GOALS, SECURITY_QUESTIONS } from "../api";
 import { BodyStatsFields } from "../components/BodyStatsFields";
 import { loadTodayLog } from "../lib/dailyLog";
 import { resolveBodyStats } from "../lib/bodyMetrics";
@@ -21,6 +21,13 @@ const GOAL_LABEL: Record<string, string> = {
   maintain: "Maintain",
   gain: "Gain / build",
 };
+
+function humanizeFlag(id: string): string {
+  return id
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 const CUSTOM_QUESTION = "Write your own question";
 
@@ -121,15 +128,23 @@ export function ProfilePage() {
     const securityQuestion =
       questionPreset === CUSTOM_QUESTION ? customQuestion.trim() : questionPreset;
     if (!securityQuestion || securityQuestion.length < 3) {
-      setSecurityError("Choose or write a security question");
+      setSecurityError("Choose or write a security question.");
       return;
     }
-    if (!securityAnswer.trim()) {
-      setSecurityError("Security answer is required");
+    if (securityQuestion.length > 300) {
+      setSecurityError("Security question must be at most 300 characters.");
+      return;
+    }
+    if (securityAnswer.trim().length < 2) {
+      setSecurityError("Security answer must be at least 2 characters.");
+      return;
+    }
+    if (securityAnswer.trim().length > 200) {
+      setSecurityError("Security answer must be at most 200 characters.");
       return;
     }
     if (!currentPassword) {
-      setSecurityError("Enter your current password");
+      setSecurityError("Enter your current password.");
       return;
     }
     setSecuritySaving(true);
@@ -201,9 +216,12 @@ export function ProfilePage() {
                 <span className="field__label">Your question</span>
                 <input
                   className="input"
+                  type="text"
                   value={customQuestion}
                   onChange={(e) => setCustomQuestion(e.target.value)}
                   required
+                  minLength={3}
+                  maxLength={300}
                 />
               </label>
             ) : null}
@@ -211,9 +229,12 @@ export function ProfilePage() {
               <span className="field__label">Security answer</span>
               <input
                 className="input"
+                type="text"
                 value={securityAnswer}
                 onChange={(e) => setSecurityAnswer(e.target.value)}
                 required
+                minLength={2}
+                maxLength={200}
                 autoComplete="off"
               />
             </label>
@@ -225,6 +246,7 @@ export function ProfilePage() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
+                maxLength={128}
                 autoComplete="current-password"
               />
             </label>
@@ -295,7 +317,7 @@ export function ProfilePage() {
             </div>
             <div className="target-card">
               <div className="target-card__value">{targets.tdee ?? "—"}</div>
-              <div className="target-card__label">TDEE</div>
+              <div className="target-card__label">Daily burn (TDEE)</div>
             </div>
           </div>
           {targets.basis ? <p className="page-sub" style={{ marginTop: "0.65rem", marginBottom: 0 }}>{targets.basis}</p> : null}
@@ -319,9 +341,9 @@ export function ProfilePage() {
           <span className="field__label">Sex</span>
           <select className="select" value={sex} onChange={(e) => setSex(e.target.value)}>
             <option value="">—</option>
-            {SEXES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other / prefer not to say</option>
           </select>
         </label>
 
@@ -356,7 +378,7 @@ export function ProfilePage() {
                 className={`chip ${allergies.includes(a) ? "chip--on" : ""}`}
                 onClick={() => toggle(allergies, setAllergies, a)}
               >
-                {a}
+                {humanizeFlag(a)}
               </button>
             ))}
           </div>
@@ -372,7 +394,7 @@ export function ProfilePage() {
                 className={`chip ${prefs.includes(d) ? "chip--on" : ""}`}
                 onClick={() => toggle(prefs, setPrefs, d)}
               >
-                {d}
+                {humanizeFlag(d)}
               </button>
             ))}
           </div>

@@ -1,7 +1,25 @@
 import json
 from datetime import datetime, timezone
 
+import re
+
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+_PASSWORD_LETTER = re.compile(r"[A-Za-z]")
+_PASSWORD_DIGIT = re.compile(r"\d")
+
+
+def _validate_new_password(password: str) -> str:
+    """Require 8–128 chars with at least one letter and one digit (register / reset)."""
+    pw = str(password)
+    if len(pw) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if len(pw) > 128:
+        raise ValueError("Password must be at most 128 characters")
+    if not _PASSWORD_LETTER.search(pw) or not _PASSWORD_DIGIT.search(pw):
+        raise ValueError("Password must include at least one letter and one number")
+    return pw
+
 
 DIETARY_FLAGS = [
     "vegetarian",
@@ -498,6 +516,11 @@ class UserRegister(BaseModel):
     def normalize_email(cls, v: str) -> str:
         return str(v).strip().lower()
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_new_password(v)
+
     @field_validator("security_question", mode="before")
     @classmethod
     def strip_question(cls, v: str) -> str:
@@ -555,6 +578,11 @@ class ForgotPasswordReset(BaseModel):
     @classmethod
     def normalize_email(cls, v: str) -> str:
         return str(v).strip().lower()
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_new_password(v)
 
     @field_validator("security_answer", mode="before")
     @classmethod

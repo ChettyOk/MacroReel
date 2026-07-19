@@ -1,6 +1,6 @@
 import type { DailyLogDay, Nutrition } from "../api";
 import * as api from "../api";
-import { getDailyLog as getLocalLog } from "./storage";
+import { getDailyLog as getLocalLog, localDateKey } from "./storage";
 
 const MIGRATED_KEY = "macroreel-daily-log-migrated";
 const OLD_MIGRATED_KEY = "recipeai-daily-log-migrated";
@@ -34,7 +34,7 @@ export async function migrateLocalDailyLogOnce(): Promise<void> {
 
 export async function loadTodayLog(): Promise<DailyLogDay> {
   await migrateLocalDailyLogOnce();
-  return api.fetchDailyLog();
+  return api.fetchDailyLog(localDateKey());
 }
 
 export function sumLogTotals(totals: Nutrition): Nutrition {

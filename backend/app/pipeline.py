@@ -158,4 +158,18 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
         result.draft = draft_from_text(ctx.title, blob, transcript=audio_transcript or ctx.transcript)
         result.steps_log.append("structured with heuristics (no AI)")
 
+    if _is_empty_recipe_draft(result.draft):
+        raise ValueError(
+            "No recipe found in this video’s title, description, or captions. "
+            "Try a cooking video with ingredients listed, or enable Deep extract."
+        )
+
     return result
+
+
+def _is_empty_recipe_draft(draft: RecipeBase) -> bool:
+    title = (draft.title or "").strip().lower()
+    has_content = bool(draft.ingredients) or bool(draft.steps)
+    if has_content:
+        return False
+    return title in ("", "could not parse recipe", "imported recipe")

@@ -379,23 +379,37 @@ export type HealthStatus = {
   tts_kokoro?: boolean;
 };
 
+function friendlyValidationMsg(msg: string): string {
+  const cleaned = msg.replace(/^Value error,\s*/i, "").trim();
+  if (/password/i.test(cleaned)) return cleaned;
+  if (/field required/i.test(cleaned)) return "Please fill in all required fields.";
+  return cleaned || "Please check your entries and try again.";
+}
+
 function parseApiError(text: string, status: number): Error {
-  if (!text) return new Error(`Request failed (${status})`);
+  if (!text) {
+    if (status === 401) return new Error("Please sign in again.");
+    if (status === 404) return new Error("We couldn’t find that.");
+    if (status >= 500) return new Error("Something went wrong. Please try again in a moment.");
+    return new Error("Request failed. Please try again.");
+  }
   try {
     const j = JSON.parse(text) as { detail?: unknown };
-    if (typeof j.detail === "string") return new Error(j.detail);
+    if (typeof j.detail === "string") return new Error(friendlyValidationMsg(j.detail));
     if (Array.isArray(j.detail)) {
       const parts = j.detail.map((item) => {
-        if (item && typeof item === "object" && "msg" in item)
-          return String((item as { msg: string }).msg);
-        return JSON.stringify(item);
+        if (item && typeof item === "object" && "msg" in item) {
+          return friendlyValidationMsg(String((item as { msg: string }).msg));
+        }
+        return "Please check your entries and try again.";
       });
-      return new Error(parts.join("; "));
+      return new Error([...new Set(parts)].join(" "));
     }
   } catch {
     /* not JSON */
   }
-  return new Error(text);
+  if (status >= 500) return new Error("Something went wrong. Please try again in a moment.");
+  return new Error(text.length > 180 ? "Something went wrong. Please try again." : text);
 }
 
 async function parse(res: Response): Promise<void> {

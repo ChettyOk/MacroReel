@@ -46,6 +46,7 @@ from app.schemas import (
     row_to_read,
     utc_now,
 )
+from app.tts import TTSError, synthesize_kokoro, tts_provider_available
 from app.thumbnail_cache import (
     cache_thumbnail,
     delete_thumbnail,
@@ -53,7 +54,6 @@ from app.thumbnail_cache import (
     resolve_remote_thumbnail_url,
 )
 from app.spa import mount_spa
-from app.tts import TTSError, synthesize_kokoro
 from app.upgrades import build_recipe_upgrades
 from app.video_context import fetch_video_context
 from app.video_urls import normalize_video_url
@@ -95,7 +95,7 @@ def health() -> dict[str, object]:
         "nutrition": config.ENABLE_NUTRITION,
         "nutrition_usda": bool(config.USDA_API_KEY),
         "nutrition_gemini": bool(config.GEMINI_API_KEY),
-        "tts_kokoro": config.ENABLE_KOKORO_TTS,
+        "tts_kokoro": tts_provider_available(),
         "supported_video_platforms": ["tiktok", "youtube", "instagram", "facebook"],
     }
 

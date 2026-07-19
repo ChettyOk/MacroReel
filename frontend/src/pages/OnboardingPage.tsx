@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as api from "../api";
-import { ACTIVITY_LEVELS, SEXES } from "../api";
+import { ACTIVITY_LEVELS } from "../api";
 import { BodyStatsFields } from "../components/BodyStatsFields";
 import { MacroRing } from "../components/MacroRing";
 import { useAuth } from "../context/AuthContext";
@@ -137,16 +137,26 @@ export function OnboardingPage() {
             <label className="field">
               <span className="field__label">Sex</span>
               <select className="select" value={sex} onChange={(e) => setSex(e.target.value)}>
-                {SEXES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other / prefer not to say</option>
               </select>
             </label>
             <label className="field">
               <span className="field__label">Activity</span>
               <select className="select" value={activity} onChange={(e) => setActivity(e.target.value)}>
                 {ACTIVITY_LEVELS.map((a) => (
-                  <option key={a} value={a}>{a.replace("_", " ")}</option>
+                  <option key={a} value={a}>
+                    {a === "sedentary"
+                      ? "Sedentary"
+                      : a === "light"
+                        ? "Lightly active"
+                        : a === "moderate"
+                          ? "Moderately active"
+                          : a === "active"
+                            ? "Active"
+                            : "Very active"}
+                  </option>
                 ))}
               </select>
             </label>
