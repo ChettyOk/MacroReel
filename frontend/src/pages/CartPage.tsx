@@ -166,7 +166,9 @@ export function CartPage() {
                 <span className="field__label">Shopping location</span>
                 <input
                   className="input"
+                  type="text"
                   value={locationInput}
+                  maxLength={120}
                   placeholder="City, province/state, or postal code"
                   onChange={(e) => setLocationInput(e.target.value)}
                 />
@@ -245,7 +247,7 @@ export function CartPage() {
                           <span className="cart-checklist__text">{line}</span>
                           {price?.best_price != null && price.best_store ? (
                             <span className="cart-price-line">
-                              Best: {price.best_store} {formatMoney(price.best_price, bestStore?.currency ?? pricing?.currency ?? "USD/CAD")}
+                              Best: {price.best_store} {formatMoney(price.best_price, bestStore?.currency ?? pricing?.currency ?? "USD")}
                             </span>
                           ) : priceLoading ? (
                             <span className="cart-price-line">Checking store prices…</span>

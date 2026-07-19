@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Nutrition, Recipe } from "../api";
 import * as api from "../api";
+import { localDateKey } from "../lib/storage";
 import { AnimatedNumber } from "./AnimatedNumber";
 
 type Props = {
@@ -25,6 +26,7 @@ export function LogMealModal({ recipe, perServing, onClose, onLogged }: Props) {
         title: recipe.title,
         servings,
         nutrition: perServing,
+        log_date: localDateKey(),
       });
       setSuccess(true);
       await new Promise((r) => setTimeout(r, 650));
@@ -44,7 +46,9 @@ export function LogMealModal({ recipe, perServing, onClose, onLogged }: Props) {
       role="dialog"
       aria-modal
       className="modal-backdrop"
-      onClick={onClose}
+      onClick={() => {
+        if (!saving) onClose();
+      }}
     >
       <div className={`card reveal-up modal-sheet ${success ? "modal-sheet--success" : ""}`} onClick={(e) => e.stopPropagation()}>
         {success ? (

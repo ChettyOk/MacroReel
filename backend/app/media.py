@@ -40,7 +40,9 @@ def download_video(url: str, workdir: Path) -> Path:
                     f"Video is {int(duration)}s, longer than MAX_VIDEO_SECONDS={MAX_VIDEO_SECONDS}."
                 )
     except yt_dlp.utils.DownloadError as e:
-        raise MediaError(str(e)) from e
+        from app.video_context import _clean_ytdlp_error
+
+        raise MediaError(_clean_ytdlp_error(str(e))) from e
 
     files = sorted(workdir.glob("video.*"))
     if not files:

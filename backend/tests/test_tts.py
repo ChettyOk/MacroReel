@@ -1,5 +1,16 @@
 import app.config as config
-from app.tts import TTSError, _synthesize_huggingface, synthesize_kokoro
+from app.tts import TTSError, _synthesize_huggingface, synthesize_kokoro, tts_provider_available
+
+
+def test_tts_provider_available_respects_flag(monkeypatch):
+    monkeypatch.setattr(config, "ENABLE_KOKORO_TTS", False)
+    assert tts_provider_available() is False
+
+
+def test_tts_provider_available_edge_when_importable(monkeypatch):
+    monkeypatch.setattr(config, "ENABLE_KOKORO_TTS", True)
+    monkeypatch.setattr(config, "KOKORO_TTS_PROVIDER", "edge")
+    assert tts_provider_available() is True
 
 
 def test_kokoro_tts_disabled(monkeypatch):

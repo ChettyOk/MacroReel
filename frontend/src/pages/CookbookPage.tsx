@@ -39,7 +39,7 @@ export function CookbookPage() {
   if (error) {
     return (
       <div className="card" role="alert" style={{ color: "var(--danger-soft-text)" }}>
-        {error} — is the backend running?
+        {error}
       </div>
     );
   }

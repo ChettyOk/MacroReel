@@ -87,7 +87,11 @@ export function RecipeDetailPage() {
   const { removeFavorite } = useFavorites();
 
   useEffect(() => {
-    if (recipeId == null) return;
+    if (recipeId == null || !Number.isFinite(recipeId)) {
+      setLoading(false);
+      setErr("Recipe not found.");
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setErr(null);
@@ -196,13 +200,13 @@ export function RecipeDetailPage() {
 
   function speakWithBrowserVoice(narration: string, reason?: string) {
     if (reason) {
-      setCartMsg(reason);
-      globalThis.setTimeout(() => setCartMsg(null), 3200);
+      setShareMsg(reason);
+      globalThis.setTimeout(() => setShareMsg(null), 3200);
     }
     if (!("speechSynthesis" in window)) {
       setSpeaking(false);
-      setCartMsg("Read-aloud is not supported in this browser.");
-      globalThis.setTimeout(() => setCartMsg(null), 2800);
+      setShareMsg("Read-aloud is not supported in this browser.");
+      globalThis.setTimeout(() => setShareMsg(null), 2800);
       return;
     }
     const utterance = new SpeechSynthesisUtterance(narration);
@@ -239,7 +243,7 @@ export function RecipeDetailPage() {
       audio.onerror = () => {
         URL.revokeObjectURL(url);
         audioRef.current = null;
-        speakWithBrowserVoice(narration, "AI voice could not play — using device voice.");
+        speakWithBrowserVoice(narration, "Using your device voice instead.");
       };
       try {
         await audio.play();
@@ -248,12 +252,8 @@ export function RecipeDetailPage() {
         audioRef.current = null;
         throw e;
       }
-    } catch (err) {
-      const reason =
-        err instanceof Error && err.message
-          ? `AI voice unavailable (${err.message}) — using device voice.`
-          : "AI voice unavailable — using device voice.";
-      speakWithBrowserVoice(narration, reason);
+    } catch {
+      speakWithBrowserVoice(narration, "Using your device voice instead.");
     }
   }
 
@@ -307,7 +307,11 @@ export function RecipeDetailPage() {
             animate
             calories={displayNutrition.calories}
             nutrition={displayNutrition}
-            subtitle="per serving"
+            subtitle={
+              portion.unit === "serving" && portion.amount === 1
+                ? "per serving"
+                : `for ${portion.amount} ${portion.unit}${portion.amount === 1 ? "" : "s"}`
+            }
           />
         </section>
       ) : null}

@@ -5,6 +5,20 @@ import { SECURITY_QUESTIONS } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useRuntimeConfig } from "../context/RuntimeConfigContext";
 import * as api from "../api";
+import {
+  EMAIL_MAX,
+  NAME_MAX,
+  PASSWORD_MAX,
+  PASSWORD_MIN,
+  SECURITY_ANSWER_MAX,
+  SECURITY_ANSWER_MIN,
+  SECURITY_QUESTION_MAX,
+  SECURITY_QUESTION_MIN,
+  passwordCriteriaMessage,
+  validateNewPassword,
+  validateSecurityAnswer,
+  validateSecurityQuestion,
+} from "../lib/authPassword";
 
 type Mode = "login" | "register" | "reset";
 
@@ -18,6 +32,7 @@ export function AuthPage() {
   const [resetStep, setResetStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmRegisterPassword, setConfirmRegisterPassword] = useState("");
   const [name, setName] = useState("");
   const [questionPreset, setQuestionPreset] = useState<string>(SECURITY_QUESTIONS[0]);
   const [customQuestion, setCustomQuestion] = useState("");
@@ -62,24 +77,61 @@ export function AuthPage() {
     setResetQuestion("");
     setNewPassword("");
     setConfirmPassword("");
+    setConfirmRegisterPassword("");
     setSecurityAnswer("");
+    setPassword("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    if (mode === "register") {
+      const pwErr = validateNewPassword(password);
+      if (pwErr) {
+        setError(pwErr);
+        return;
+      }
+      if (password !== confirmRegisterPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      const qErr = validateSecurityQuestion(securityQuestion);
+      if (qErr) {
+        setError(qErr);
+        return;
+      }
+      const aErr = validateSecurityAnswer(securityAnswer);
+      if (aErr) {
+        setError(aErr);
+        return;
+      }
+    } else if (!password) {
+      setError("Password is required.");
+      return;
+    } else if (password.length > PASSWORD_MAX) {
+      setError(`Password must be at most ${PASSWORD_MAX} characters.`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (mode === "login") {
-        await login(email, password);
-      } else if (mode === "register") {
-        if (!securityQuestion || securityQuestion.length < 3) {
-          throw new Error("Choose or write a security question");
-        }
-        if (!securityAnswer.trim()) {
-          throw new Error("Security answer is required");
-        }
-        await register(email, password, securityQuestion, securityAnswer.trim(), name.trim() || undefined);
+        await login(trimmedEmail, password);
+      } else {
+        await register(
+          trimmedEmail,
+          password,
+          securityQuestion,
+          securityAnswer.trim(),
+          name.trim() || undefined,
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
@@ -91,9 +143,14 @@ export function AuthPage() {
   async function handleResetLookup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Enter a valid email address.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const question = await api.lookupForgotPasswordQuestion(email.trim());
+      const question = await api.lookupForgotPasswordQuestion(trimmedEmail);
       setResetQuestion(question);
       setResetStep(2);
     } catch (err) {
@@ -106,8 +163,18 @@ export function AuthPage() {
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const aErr = validateSecurityAnswer(securityAnswer);
+    if (aErr) {
+      setError(aErr);
+      return;
+    }
+    const pwErr = validateNewPassword(newPassword);
+    if (pwErr) {
+      setError(pwErr);
+      return;
+    }
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      setError("New passwords do not match.");
       return;
     }
     setSubmitting(true);
@@ -115,6 +182,9 @@ export function AuthPage() {
       await api.resetPasswordWithSecurityAnswer(email.trim(), securityAnswer.trim(), newPassword);
       setResetSuccess(true);
       setPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setSecurityAnswer("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Password reset failed");
     } finally {
@@ -124,7 +194,7 @@ export function AuthPage() {
 
   async function handleGoogle(response: CredentialResponse) {
     if (!response.credential) {
-      setError("Google sign-in did not return a token");
+      setError("Google sign-in did not complete. Please try again.");
       return;
     }
     setError(null);
@@ -145,9 +215,11 @@ export function AuthPage() {
           <p className="auth-kicker">MacroReel</p>
           <h1 className="auth-title">Reset password</h1>
           <p className="auth-sub">
-            {resetStep === 1
-              ? "Enter your account email to load your security question."
-              : "Answer your security question, then choose a new password."}
+            {resetSuccess
+              ? "Your password was updated."
+              : resetStep === 1
+                ? "Enter your account email to load your security question."
+                : "Answer your security question, then choose a new password."}
           </p>
 
           {error ? (
@@ -157,23 +229,28 @@ export function AuthPage() {
           ) : null}
 
           {resetSuccess ? (
-            <div className="alert alert--success" role="status">
-              Password updated. You can sign in with your new password.
-            </div>
-          ) : null}
-
-          {resetStep === 1 ? (
-            <form className="form-stack" onSubmit={handleResetLookup}>
+            <>
+              <div className="alert alert--success" role="status">
+                You can sign in with your new password.
+              </div>
+              <button type="button" className="btn btn--primary btn--block" onClick={() => switchMode("login")}>
+                Sign in
+              </button>
+            </>
+          ) : resetStep === 1 ? (
+            <form className="form-stack" onSubmit={handleResetLookup} noValidate>
               <label className="field">
                 <span className="field__label">Email</span>
                 <input
                   className="input"
                   type="email"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   required
-                  placeholder="you@example.com"
+                  maxLength={EMAIL_MAX}
+                  placeholder="name@email.com"
                 />
               </label>
               <button type="submit" className="btn btn--primary btn--block" disabled={submitting || loading}>
@@ -181,7 +258,7 @@ export function AuthPage() {
               </button>
             </form>
           ) : (
-            <form className="form-stack" onSubmit={handleResetPassword}>
+            <form className="form-stack" onSubmit={handleResetPassword} noValidate>
               <label className="field">
                 <span className="field__label">Security question</span>
                 <p className="auth-question">{resetQuestion}</p>
@@ -190,9 +267,12 @@ export function AuthPage() {
                 <span className="field__label">Your answer</span>
                 <input
                   className="input"
+                  type="text"
                   value={securityAnswer}
                   onChange={(e) => setSecurityAnswer(e.target.value)}
                   required
+                  minLength={SECURITY_ANSWER_MIN}
+                  maxLength={SECURITY_ANSWER_MAX}
                   autoComplete="off"
                 />
               </label>
@@ -205,7 +285,9 @@ export function AuthPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   autoComplete="new-password"
                   required
-                  minLength={8}
+                  minLength={PASSWORD_MIN}
+                  maxLength={PASSWORD_MAX}
+                  placeholder={passwordCriteriaMessage()}
                 />
               </label>
               <label className="field">
@@ -217,20 +299,24 @@ export function AuthPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
                   required
-                  minLength={8}
+                  minLength={PASSWORD_MIN}
+                  maxLength={PASSWORD_MAX}
                 />
               </label>
+              <p className="auth-note">{passwordCriteriaMessage()}</p>
               <button type="submit" className="btn btn--primary btn--block" disabled={submitting || loading}>
                 {submitting ? "Please wait…" : "Update password"}
               </button>
             </form>
           )}
 
-          <p className="auth-switch">
-            <button type="button" className="auth-link" onClick={() => switchMode("login")}>
-              Back to sign in
-            </button>
-          </p>
+          {!resetSuccess ? (
+            <p className="auth-switch">
+              <button type="button" className="auth-link" onClick={() => switchMode("login")}>
+                Back to sign in
+              </button>
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -258,7 +344,7 @@ export function AuthPage() {
             {googleWidth > 0 ? (
               <GoogleLogin
                 onSuccess={handleGoogle}
-                onError={() => setError("Google sign-in was cancelled or failed")}
+                onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
                 theme="outline"
                 size="large"
                 width={`${googleWidth}`}
@@ -267,23 +353,25 @@ export function AuthPage() {
               />
             ) : null}
           </div>
-        ) : (
-          <p className="auth-note">Google sign-in is not configured for this build.</p>
-        )}
+        ) : null}
 
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
+        {googleClientId ? (
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+        ) : null}
 
-        <form className="form-stack" onSubmit={handleSubmit}>
+        <form className="form-stack" onSubmit={handleSubmit} noValidate>
           {mode === "register" ? (
             <label className="field">
               <span className="field__label">Name (optional)</span>
               <input
                 className="input"
+                type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
+                maxLength={NAME_MAX}
                 placeholder="Your name"
               />
             </label>
@@ -294,11 +382,13 @@ export function AuthPage() {
             <input
               className="input"
               type="email"
+              inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
-              placeholder="you@example.com"
+              maxLength={EMAIL_MAX}
+              placeholder="name@email.com"
             />
           </label>
 
@@ -311,13 +401,28 @@ export function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               required
-              minLength={8}
-              placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
+              minLength={mode === "register" ? PASSWORD_MIN : 1}
+              maxLength={PASSWORD_MAX}
+              placeholder={mode === "register" ? passwordCriteriaMessage() : "Your password"}
             />
           </label>
 
           {mode === "register" ? (
             <>
+              <label className="field">
+                <span className="field__label">Confirm password</span>
+                <input
+                  className="input"
+                  type="password"
+                  value={confirmRegisterPassword}
+                  onChange={(e) => setConfirmRegisterPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  minLength={PASSWORD_MIN}
+                  maxLength={PASSWORD_MAX}
+                />
+              </label>
+              <p className="auth-note">{passwordCriteriaMessage()}</p>
               <label className="field">
                 <span className="field__label">Security question</span>
                 <select
@@ -338,9 +443,12 @@ export function AuthPage() {
                   <span className="field__label">Your question</span>
                   <input
                     className="input"
+                    type="text"
                     value={customQuestion}
                     onChange={(e) => setCustomQuestion(e.target.value)}
                     required
+                    minLength={SECURITY_QUESTION_MIN}
+                    maxLength={SECURITY_QUESTION_MAX}
                     placeholder="e.g. Favorite childhood nickname?"
                   />
                 </label>
@@ -349,9 +457,12 @@ export function AuthPage() {
                 <span className="field__label">Security answer</span>
                 <input
                   className="input"
+                  type="text"
                   value={securityAnswer}
                   onChange={(e) => setSecurityAnswer(e.target.value)}
                   required
+                  minLength={SECURITY_ANSWER_MIN}
+                  maxLength={SECURITY_ANSWER_MAX}
                   autoComplete="off"
                   placeholder="Answer you'll remember"
                 />

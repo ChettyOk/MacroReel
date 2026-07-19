@@ -236,6 +236,19 @@ def _download_best_transcript(
     return ""
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _clean_ytdlp_error(raw: str) -> str:
+    """Strip ANSI / ERROR: prefixes so API clients show a readable message."""
+    msg = _ANSI_RE.sub("", raw).strip()
+    msg = re.sub(r"^(ERROR:\s*)+", "", msg, flags=re.IGNORECASE).strip()
+    # Collapse noisy yt-dlp wiki tails for UI; keep the first sentence-ish chunk.
+    if "See  https://github.com/yt-dlp" in msg or "See https://github.com/yt-dlp" in msg:
+        msg = re.split(r"\s+See\s+https://github\.com/yt-dlp", msg, maxsplit=1)[0].strip()
+    return msg or "Video extraction failed."
+
+
 def fetch_video_context(url: str) -> VideoContext:
     opts: dict[str, Any] = {
         "quiet": True,
@@ -252,8 +265,11 @@ def fetch_video_context(url: str) -> VideoContext:
         try:
             info = ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as e:
-            msg = str(e)
-            if "Sign in to confirm" in msg or "not a bot" in msg.lower():
+            msg = _clean_ytdlp_error(str(e))
+            low = msg.lower()
+            if "private video" in low:
+                msg = "This video is private. Use a public video link, or add cookies for an account that can view it."
+            elif "sign in to confirm" in low or "not a bot" in low:
                 if not YTDLP_COOKIES_FILE and not YTDLP_COOKIES_FROM_BROWSER:
                     msg += (
                         " Fix: set YTDLP_COOKIES_FILE (cookies.txt) or YTDLP_COOKIES_FROM_BROWSER (e.g. chrome) "

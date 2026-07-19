@@ -20,6 +20,7 @@ const PLATFORMS = [
   { id: "tiktok", label: "TikTok" },
   { id: "youtube", label: "YouTube" },
   { id: "instagram", label: "Instagram" },
+  { id: "facebook", label: "Facebook" },
 ] as const;
 
 export function ImportPage() {
@@ -55,7 +56,7 @@ export function ImportPage() {
     const extracted = normalizeVideoUrl(extractVideoUrlFromText(rawUrl) ?? rawUrl.trim());
     if (!extracted) return;
     if (!isSupportedVideoUrl(extracted)) {
-      setError("Paste a TikTok, YouTube, or Instagram video link.");
+      setError("Paste a TikTok, YouTube, Instagram, or Facebook video link.");
       return;
     }
     setVideoUrl(extracted);
@@ -135,7 +136,7 @@ export function ImportPage() {
     <div className="page reveal-up">
       <h1 className="page-title">Import video</h1>
       <p className="page-sub">
-        Paste a TikTok, Instagram, YouTube, or YouTube Shorts link — or add a recipe by hand.
+        Paste a TikTok, Instagram, YouTube, Shorts, or Facebook cooking link — or add a recipe by hand.
       </p>
 
       <div className="platform-pills" aria-label="Supported platforms">
@@ -151,9 +152,7 @@ export function ImportPage() {
           {error}
           {isYoutubeBotError(error) ? (
             <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", color: "var(--text-muted)", lineHeight: 1.45 }}>
-              YouTube often needs cookies on the server. Add <code style={{ fontSize: "0.78rem" }}>YTDLP_COOKIES_FILE</code> or{" "}
-              <code style={{ fontSize: "0.78rem" }}>YTDLP_COOKIES_FROM_BROWSER=chrome</code> in <code style={{ fontSize: "0.78rem" }}>backend/.env</code>{" "}
-              (see README), restart the API, then try again.
+              YouTube is temporarily blocking this import. Try again in a moment, use a different public link, or import the recipe by hand below.
             </p>
           ) : null}
         </div>
@@ -171,11 +170,13 @@ export function ImportPage() {
           <span className="field__label">Video URL</span>
           <input
             className="input"
-            type="url"
+            type="text"
             inputMode="url"
-            placeholder="TikTok, Instagram, youtube.com/watch, youtu.be, or /shorts/..."
+            autoComplete="url"
+            placeholder="Paste a TikTok, Instagram, YouTube, or Facebook link"
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
+            required
             autoFocus
           />
         </label>
@@ -186,7 +187,7 @@ export function ImportPage() {
         ) : null}
         <label className="check-row">
           <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />
-          Use AI to structure recipe
+          Use AI to structure the recipe
         </label>
         <label className="check-row">
           <input
@@ -195,9 +196,9 @@ export function ImportPage() {
             onChange={(e) => setUseDeepExtract(e.target.checked)}
             disabled={health != null && !health.media_pipeline}
           />
-          Deep extract (download video + audio/OCR)
+          Deeper extract (read spoken steps and on-screen text)
           {health != null && !health.media_pipeline ? (
-            <span className="check-row__hint"> — needs ffmpeg + ENABLE_MEDIA_PIPELINE</span>
+            <span className="check-row__hint"> — not available right now</span>
           ) : null}
         </label>
         <button type="submit" className="btn btn--primary btn--block" disabled={!videoUrl.trim()}>

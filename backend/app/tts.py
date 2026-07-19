@@ -263,6 +263,26 @@ def _synthesize_provider_chunk(text: str, voice: str) -> tuple[bytes, str]:
     return _synthesize_edge(text, voice)
 
 
+def tts_provider_available() -> bool:
+    """True when ENABLE_KOKORO_TTS is on and the configured provider can be imported."""
+    if not config.ENABLE_KOKORO_TTS:
+        return False
+    provider = config.KOKORO_TTS_PROVIDER
+    if provider in ("edge", "kokoro"):
+        try:
+            import edge_tts  # noqa: F401
+        except ImportError:
+            return False
+        return True
+    if provider in ("fal-ai", "huggingface", "hf"):
+        try:
+            from huggingface_hub import InferenceClient  # noqa: F401
+        except ImportError:
+            return False
+        return bool(config.HUGGINGFACE_API_KEY)
+    return False
+
+
 def synthesize_kokoro(text: str, voice: str | None = None) -> tuple[bytes, str]:
     if not config.ENABLE_KOKORO_TTS:
         raise TTSError("Kokoro TTS is disabled.")

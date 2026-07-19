@@ -68,8 +68,8 @@ export function HomePage() {
   }, [location, navigate, load]);
 
   const consumed = dailyLog ? sumLogTotals(dailyLog.totals) : emptyNutrition;
-  const targetCal = targets?.target_calories ?? 2000;
-  const remaining = Math.max(0, targetCal - (consumed.calories ?? 0));
+  const targetCal = targets?.target_calories ?? null;
+  const remaining = targetCal != null ? Math.max(0, targetCal - (consumed.calories ?? 0)) : null;
   const filtered = recipes.filter((r) => matchesFilter(r, filter));
 
   return (
@@ -80,10 +80,21 @@ export function HomePage() {
       </header>
 
       <section className="remaining-banner" style={{ marginBottom: "1rem" }}>
-        <p className="remaining-banner__lbl">Calories remaining</p>
-        <p className="display-num remaining-banner__num">{remaining}</p>
+        {remaining != null ? (
+          <>
+            <p className="remaining-banner__lbl">Calories remaining</p>
+            <p className="display-num remaining-banner__num">{remaining}</p>
+          </>
+        ) : (
+          <>
+            <p className="remaining-banner__lbl">Daily targets</p>
+            <p className="page-sub" style={{ margin: "0.35rem 0 0" }}>
+              Set your profile to see calories remaining today.
+            </p>
+          </>
+        )}
         <button type="button" className="btn btn--primary" style={{ marginTop: "0.75rem" }} onClick={() => navigate("/cookbook")}>
-          + Log a meal
+          Choose a meal to log
         </button>
       </section>
 

@@ -7,7 +7,7 @@ import { FitDayCard } from "../components/FitDayCard";
 import { MacroHero } from "../components/MacroHero";
 import { NutritionPanel } from "../NutritionPanel";
 import type { PortionInput } from "../portion";
-import { linesToList, numOrNull } from "../ui";
+import { intOrNull, linesToList, numOrNull } from "../ui";
 
 type FormLocationState = {
   draft?: ExtractFromVideoResult;
@@ -44,10 +44,16 @@ export function RecipeFormPage() {
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(editingId != null);
+  const [saving, setSaving] = useState(false);
 
   // Load: existing recipe (edit) or import draft (new).
   useEffect(() => {
     let cancelled = false;
+    if (editingId != null && !Number.isFinite(editingId)) {
+      setError("Recipe not found.");
+      setLoading(false);
+      return;
+    }
     if (editingId != null) {
       setLoading(true);
       void api
@@ -82,8 +88,13 @@ export function RecipeFormPage() {
       setSourcePlatform(draft.source_platform);
       setSourceContextText(draft.source_context_text);
       setThumbnailUrl(draft.thumbnail_url);
-      const mode = draft.used_ai ? "Gemini structured this draft." : "Heuristic draft (no AI).";
-      setBanner(`${draft.source_platform ? `From ${draft.source_platform}. ` : ""}${mode}${draft.extraction_note ? ` ${draft.extraction_note}` : ""} Review and edit, then Save.`);
+      const platform = draft.source_platform
+        ? `From ${draft.source_platform.charAt(0).toUpperCase()}${draft.source_platform.slice(1)}. `
+        : "";
+      const mode = draft.used_ai
+        ? "We drafted this recipe from your video."
+        : "We drafted this recipe from the video text — review carefully.";
+      setBanner(`${platform}${mode} Edit anything that looks off, then save.`);
       if (!draft.nutrition && draft.ingredients.length > 0) {
         void api
           .computeNutrition(draft.ingredients, draft.servings, draft.source_context_text)
@@ -144,14 +155,44 @@ export function RecipeFormPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setError("Add a recipe title.");
+      return;
+    }
+    if (cleanTitle.length > 200) {
+      setError("Title must be at most 200 characters.");
+      return;
+    }
     const ingredients = linesToList(ingredientsText);
+    const steps = linesToList(stepsText);
+    if (ingredients.length === 0) {
+      setError("Add at least one ingredient.");
+      return;
+    }
+    if (steps.length === 0) {
+      setError("Add at least one step.");
+      return;
+    }
+    if (prepTime.trim() && intOrNull(prepTime, { min: 0, max: 100000 }) == null) {
+      setError("Prep time must be a whole number of minutes.");
+      return;
+    }
+    if (cookTime.trim() && intOrNull(cookTime, { min: 0, max: 100000 }) == null) {
+      setError("Cook time must be a whole number of minutes.");
+      return;
+    }
+    if (servings.trim() && intOrNull(servings, { min: 1, max: 100 }) == null) {
+      setError("Servings must be a whole number between 1 and 100.");
+      return;
+    }
     const payload = {
-      title,
+      title: cleanTitle,
       ingredients,
-      steps: linesToList(stepsText),
-      prep_time_min: numOrNull(prepTime),
-      cook_time_min: numOrNull(cookTime),
-      servings: numOrNull(servings),
+      steps,
+      prep_time_min: intOrNull(prepTime, { min: 0, max: 100000 }),
+      cook_time_min: intOrNull(cookTime, { min: 0, max: 100000 }),
+      servings: intOrNull(servings, { min: 1, max: 100 }),
       dietary_flags: dietaryFlags,
     };
 
@@ -166,6 +207,7 @@ export function RecipeFormPage() {
       }
     }
 
+    setSaving(true);
     try {
       if (editingId != null) {
         await api.updateRecipe(editingId, {
@@ -187,6 +229,8 @@ export function RecipeFormPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -228,21 +272,56 @@ export function RecipeFormPage() {
       <form onSubmit={handleSubmit} className="form-stack">
         <label className="field">
           <span className="field__label">Title</span>
-          <input className="input" required value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            className="input"
+            type="text"
+            required
+            maxLength={200}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Recipe name"
+          />
         </label>
 
         <div className="form-grid-3">
           <label className="field">
             <span className="field__label">Prep (min)</span>
-            <input className="input" type="number" min={0} value={prepTime} onChange={(e) => setPrepTime(e.target.value)} />
+            <input
+              className="input"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100000}
+              step={1}
+              value={prepTime}
+              onChange={(e) => setPrepTime(e.target.value)}
+            />
           </label>
           <label className="field">
             <span className="field__label">Cook (min)</span>
-            <input className="input" type="number" min={0} value={cookTime} onChange={(e) => setCookTime(e.target.value)} />
+            <input
+              className="input"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100000}
+              step={1}
+              value={cookTime}
+              onChange={(e) => setCookTime(e.target.value)}
+            />
           </label>
           <label className="field">
             <span className="field__label">Servings</span>
-            <input className="input" type="number" min={1} value={servings} onChange={(e) => setServings(e.target.value)} />
+            <input
+              className="input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              step={1}
+              value={servings}
+              onChange={(e) => setServings(e.target.value)}
+            />
           </label>
         </div>
 
@@ -256,7 +335,10 @@ export function RecipeFormPage() {
                 className={`chip ${dietaryFlags.includes(flag) ? "chip--on" : ""}`}
                 onClick={() => toggleFlag(flag)}
               >
-                {flag}
+                {flag
+                  .split("-")
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(" ")}
               </button>
             ))}
           </div>
@@ -264,11 +346,25 @@ export function RecipeFormPage() {
 
         <label className="field">
           <span className="field__label">Ingredients (one per line)</span>
-          <textarea className="textarea" value={ingredientsText} onChange={(e) => setIngredientsText(e.target.value)} rows={7} />
+          <textarea
+            className="textarea"
+            value={ingredientsText}
+            onChange={(e) => setIngredientsText(e.target.value)}
+            rows={7}
+            required
+            placeholder={"2 eggs\n1 tbsp butter\nSalt"}
+          />
         </label>
         <label className="field">
           <span className="field__label">Steps (one per line)</span>
-          <textarea className="textarea" value={stepsText} onChange={(e) => setStepsText(e.target.value)} rows={6} />
+          <textarea
+            className="textarea"
+            value={stepsText}
+            onChange={(e) => setStepsText(e.target.value)}
+            rows={6}
+            required
+            placeholder={"Whisk the eggs\nMelt butter in a pan\nScramble gently"}
+          />
         </label>
 
         <label className="field">
@@ -280,6 +376,7 @@ export function RecipeFormPage() {
             value={sourceContextText ?? ""}
             onChange={(e) => setSourceContextText(e.target.value.trim() || null)}
             rows={3}
+            maxLength={20000}
             placeholder={
               isManualNew
                 ? "Paste macros from packaging or notes, e.g.\n396 calories per serving\n32g protein"
@@ -316,10 +413,12 @@ export function RecipeFormPage() {
         {insights ? <FitDayCard insights={insights} /> : null}
 
         <div className="btn-row">
-          <button type="submit" className="btn btn--primary" style={{ flex: 1 }}>
-            {editingId == null ? "Save to cookbook" : "Save changes"}
+          <button type="submit" className="btn btn--primary" style={{ flex: 1 }} disabled={saving}>
+            {saving ? "Saving…" : editingId == null ? "Save to cookbook" : "Save changes"}
           </button>
-          <button type="button" className="btn btn--ghost" onClick={() => navigate(-1)}>Cancel</button>
+          <button type="button" className="btn btn--ghost" onClick={() => navigate(-1)} disabled={saving}>
+            Cancel
+          </button>
         </div>
       </form>
     </section>

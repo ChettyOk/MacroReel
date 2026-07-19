@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BODY_STAT_DEFAULTS,
   cmToFeetInches,
@@ -30,16 +30,8 @@ export function BodyStatsFields({
   onAge,
 }: Props) {
   const [units, setUnits] = useState<UnitSystem>(getPreferredUnits);
-  const seeded = useRef(false);
 
-  useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
-    if (age == null) onAge(BODY_STAT_DEFAULTS.age);
-    if (heightCm == null) onHeightCm(BODY_STAT_DEFAULTS.heightCm);
-    if (weightKg == null) onWeightKg(BODY_STAT_DEFAULTS.weightKg);
-  }, [age, heightCm, weightKg, onAge, onHeightCm, onWeightKg]);
-
+  // Display placeholders only — do not write defaults into the profile until the user picks a value.
   const cm = heightCm ?? BODY_STAT_DEFAULTS.heightCm;
   const kg = Math.round(weightKg ?? BODY_STAT_DEFAULTS.weightKg);
   const ageVal = age ?? BODY_STAT_DEFAULTS.age;
