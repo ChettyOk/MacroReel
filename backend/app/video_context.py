@@ -110,6 +110,56 @@ def _resolve_configured_cookie_file() -> Path | None:
     return None
 
 
+def _browser_profile_dirs(browser: str) -> list[Path]:
+    """Likely cookie-profile roots for a browser name (best-effort, OS-specific)."""
+    home = Path.home()
+    name = browser.strip().lower()
+    # Normalize common aliases yt-dlp accepts.
+    if name in ("chrome", "chrome-beta", "chrome-canary", "chrome-dev"):
+        return [
+            home / "Library" / "Application Support" / "Google" / "Chrome",
+            home / ".config" / "google-chrome",
+            home / ".config" / "google-chrome-beta",
+        ]
+    if name in ("chromium", "chromium-browser"):
+        return [
+            home / "Library" / "Application Support" / "Chromium",
+            home / ".config" / "chromium",
+        ]
+    if name in ("edge", "msedge"):
+        return [
+            home / "Library" / "Application Support" / "Microsoft Edge",
+            home / ".config" / "microsoft-edge",
+        ]
+    if name == "firefox":
+        return [
+            home / "Library" / "Application Support" / "Firefox",
+            home / ".mozilla" / "firefox",
+        ]
+    if name == "brave":
+        return [
+            home / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser",
+            home / ".config" / "BraveSoftware" / "Brave-Browser",
+        ]
+    if name == "opera":
+        return [
+            home / "Library" / "Application Support" / "com.operasoftware.Opera",
+            home / ".config" / "opera",
+        ]
+    if name == "safari":
+        return [home / "Library" / "Cookies"]
+    return []
+
+
+def _browser_cookies_available(browser: str) -> bool:
+    """True when a local browser profile dir exists (never true on bare Docker/Render)."""
+    dirs = _browser_profile_dirs(browser)
+    if not dirs:
+        # Unknown browser name — let yt-dlp try; failure is still handled as retryable.
+        return True
+    return any(p.is_dir() for p in dirs)
+
+
 def _browser_cookie_options() -> dict[str, Any] | None:
     if not YTDLP_COOKIES_FROM_BROWSER:
         return None
@@ -120,8 +170,32 @@ def _browser_cookie_options() -> dict[str, Any] | None:
         profile = profile.strip() or None
         if not browser:
             return None
+        if not _browser_cookies_available(browser):
+            logger.warning(
+                "YTDLP_COOKIES_FROM_BROWSER=%s but no local %s profile was found "
+                "(expected under %s). Skipping browser cookies — use YTDLP_COOKIES_CONTENT "
+                "on servers/Docker.",
+                YTDLP_COOKIES_FROM_BROWSER,
+                browser,
+                Path.home(),
+            )
+            return None
         return {"cookiesfrombrowser": (browser, profile) if profile else (browser,)}
-    return {"cookiesfrombrowser": (spec.lower(),)}
+
+    browser = spec.lower()
+    if not browser:
+        return None
+    if not _browser_cookies_available(browser):
+        logger.warning(
+            "YTDLP_COOKIES_FROM_BROWSER=%s but no local %s profile was found "
+            "(expected under %s). Skipping browser cookies — use YTDLP_COOKIES_CONTENT "
+            "on servers/Docker.",
+            YTDLP_COOKIES_FROM_BROWSER,
+            browser,
+            Path.home(),
+        )
+        return None
+    return {"cookiesfrombrowser": (browser,)}
 
 
 def _yt_dlp_cookie_options() -> dict[str, Any]:
@@ -349,6 +423,11 @@ def _user_facing_ytdlp_error(raw: str) -> str:
     low = msg.lower()
     if "private video" in low:
         return "This video is private. Use a public video link, or add the recipe by hand."
+    if "could not find" in low and "cookies database" in low:
+        return (
+            "YouTube import isn’t configured for this server yet. "
+            "Try another public link, or add the recipe by hand."
+        )
     if "sign in to confirm" in low or "not a bot" in low:
         return (
             "YouTube temporarily blocked this import. "
@@ -361,6 +440,12 @@ def _user_facing_ytdlp_error(raw: str) -> str:
         )
     if "age" in low and ("sign in" in low or "restricted" in low):
         return "This video is age-restricted and couldn’t be imported. Try another link or add it by hand."
+    # Never leak host paths like /root/.config/google-chrome to clients.
+    if "/.config/" in msg or "/library/application support/" in low or "cookies database" in low:
+        return (
+            "YouTube temporarily blocked this import. "
+            "Try another public link, wait a moment, or add the recipe by hand."
+        )
     return msg
 
 
@@ -375,6 +460,7 @@ def _is_retryable_youtube_error(raw: str) -> bool:
             "confirm your age",
             "age-restricted",
             "cookies",
+            "cookies database",
             "http error 403",
             "http error 429",
             "unable to download api page",
