@@ -7,6 +7,7 @@ import { FitDayCard } from "../components/FitDayCard";
 import { MacroHero } from "../components/MacroHero";
 import { NutritionPanel } from "../NutritionPanel";
 import type { PortionInput } from "../portion";
+import { toUserErrorMessage } from "../lib/userError";
 import { intOrNull, linesToList, numOrNull } from "../ui";
 
 type FormLocationState = {
@@ -73,7 +74,7 @@ export function RecipeFormPage() {
           setSourceContextText(r.source_context_text);
           setThumbnailUrl(r.thumbnail_url);
         })
-        .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "Failed to load"))
+        .catch((e) => !cancelled && setError(toUserErrorMessage(e, "Couldn’t load this recipe.")))
         .finally(() => !cancelled && setLoading(false));
     } else if (draft) {
       setTitle(draft.title);
@@ -146,7 +147,7 @@ export function RecipeFormPage() {
         setServings(String(report.servings));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nutrition lookup failed");
+      setError(toUserErrorMessage(err, "Couldn’t calculate nutrition. Please try again."));
     } finally {
       setRecalcing(false);
     }
@@ -228,7 +229,7 @@ export function RecipeFormPage() {
         navigate(`/recipe/${created.id}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(toUserErrorMessage(err, "Couldn’t save this recipe. Please try again."));
     } finally {
       setSaving(false);
     }

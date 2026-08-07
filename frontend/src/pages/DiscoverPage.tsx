@@ -6,6 +6,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { RecipeGridSkeleton } from "../components/RecipeCardSkeleton";
 import { RecipeThumb } from "../components/RecipeThumb";
 import { useFavorites } from "../context/FavoritesContext";
+import { toUserErrorMessage } from "../lib/userError";
 
 const SORTS = [
   { id: "recent", label: "Recent" },
@@ -45,13 +46,16 @@ export function DiscoverPage() {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("recent");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setRecipes(await api.fetchRecipes());
-    } catch {
+    } catch (e) {
       setRecipes([]);
+      setError(toUserErrorMessage(e, "Couldn’t load recipes. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -86,6 +90,15 @@ export function DiscoverPage() {
     <div className="page">
       <h1 className="page-title">Discover</h1>
       <p className="page-sub">Your saved recipes — filter by what fits today.</p>
+
+      {error ? (
+        <div className="alert alert--error" role="alert" style={{ marginBottom: "0.85rem" }}>
+          {error}
+          <button type="button" className="btn btn--secondary" style={{ marginTop: "0.65rem" }} onClick={() => void load()}>
+            Try again
+          </button>
+        </div>
+      ) : null}
 
       <input
         className="input"

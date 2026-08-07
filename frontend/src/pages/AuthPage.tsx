@@ -19,6 +19,7 @@ import {
   validateSecurityAnswer,
   validateSecurityQuestion,
 } from "../lib/authPassword";
+import { toUserErrorMessage } from "../lib/userError";
 
 type Mode = "login" | "register" | "reset";
 
@@ -134,7 +135,7 @@ export function AuthPage() {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      setError(toUserErrorMessage(err, "Sign-in failed. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -154,7 +155,7 @@ export function AuthPage() {
       setResetQuestion(question);
       setResetStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not find account");
+      setError(toUserErrorMessage(err, "We couldn’t find that account. Check the email and try again."));
     } finally {
       setSubmitting(false);
     }
@@ -186,7 +187,7 @@ export function AuthPage() {
       setConfirmPassword("");
       setSecurityAnswer("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Password reset failed");
+      setError(toUserErrorMessage(err, "Password reset failed. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -202,7 +203,7 @@ export function AuthPage() {
     try {
       await loginWithGoogle(response.credential);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
+      setError(toUserErrorMessage(err, "Google sign-in failed. Please try again."));
     } finally {
       setSubmitting(false);
     }

@@ -9,7 +9,13 @@ from typing import Any
 import yt_dlp
 
 from app.config import FFMPEG_BIN, FFPROBE_BIN, MAX_VIDEO_SECONDS
-from app.video_context import _yt_dlp_cookie_options, _youtube_extractor_args
+from app.video_context import (
+    _clean_ytdlp_error,
+    _is_retryable_youtube_error,
+    _is_youtube_url,
+    _user_facing_ytdlp_error,
+    iter_ytdlp_option_sets,
+)
 
 
 class MediaError(RuntimeError):
@@ -19,7 +25,7 @@ class MediaError(RuntimeError):
 def download_video(url: str, workdir: Path) -> Path:
     """Download the smallest reasonable video file into workdir; returns the file path."""
     outtmpl = str(workdir / "video.%(ext)s")
-    opts: dict[str, Any] = {
+    base: dict[str, Any] = {
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
@@ -27,27 +33,39 @@ def download_video(url: str, workdir: Path) -> Path:
         # Prefer a compact progressive mp4 to keep downloads small and ffmpeg-friendly.
         "format": "mp4/best[ext=mp4]/best",
         "socket_timeout": 30,
+        "retries": 2,
     }
-    opts.update(_yt_dlp_cookie_options())
-    opts.update(_youtube_extractor_args(url))
 
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            duration = float(info.get("duration") or 0) if isinstance(info, dict) else 0
-            if MAX_VIDEO_SECONDS and duration and duration > MAX_VIDEO_SECONDS:
-                raise MediaError(
-                    f"Video is {int(duration)}s, longer than MAX_VIDEO_SECONDS={MAX_VIDEO_SECONDS}."
-                )
-    except yt_dlp.utils.DownloadError as e:
-        from app.video_context import _clean_ytdlp_error
+    last_error: Exception | None = None
+    for opts in iter_ytdlp_option_sets(url, base):
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                duration = float(info.get("duration") or 0) if isinstance(info, dict) else 0
+                if MAX_VIDEO_SECONDS and duration and duration > MAX_VIDEO_SECONDS:
+                    raise MediaError(
+                        f"This video is too long to import (max {MAX_VIDEO_SECONDS // 60} minutes)."
+                    )
+            files = sorted(workdir.glob("video.*"))
+            if not files:
+                raise MediaError("We couldn’t download that video. Please try again.")
+            return files[0]
+        except MediaError:
+            raise
+        except yt_dlp.utils.DownloadError as e:
+            last_error = e
+            if _is_youtube_url(url) and _is_retryable_youtube_error(str(e)):
+                continue
+            raise MediaError(_user_facing_ytdlp_error(str(e))) from e
+        except OSError as e:
+            last_error = e
+            if _is_youtube_url(url):
+                continue
+            raise MediaError("We couldn’t download that video right now. Please try again.") from e
 
-        raise MediaError(_clean_ytdlp_error(str(e))) from e
-
-    files = sorted(workdir.glob("video.*"))
-    if not files:
-        raise MediaError("Download produced no file.")
-    return files[0]
+    if last_error is not None:
+        raise MediaError(_user_facing_ytdlp_error(str(last_error))) from last_error
+    raise MediaError("We couldn’t download that video. Please try again.")
 
 
 def probe_duration(video_path: Path) -> float:

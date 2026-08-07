@@ -7,6 +7,7 @@ import { BodyStatsFields } from "../components/BodyStatsFields";
 import { loadTodayLog } from "../lib/dailyLog";
 import { resolveBodyStats } from "../lib/bodyMetrics";
 import { useAuth } from "../context/AuthContext";
+import { toUserErrorMessage } from "../lib/userError";
 
 const ACTIVITY_LABEL: Record<string, string> = {
   sedentary: "Sedentary",
@@ -75,7 +76,7 @@ export function ProfilePage() {
         setMealsLogged(log.entries.length);
         setWeek(w);
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "Failed to load profile"))
+      .catch((e) => !cancelled && setError(toUserErrorMessage(e, "Couldn’t load your profile.")))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -115,7 +116,7 @@ export function ProfilePage() {
       setTargets(res.targets);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(toUserErrorMessage(err, "Couldn’t save your profile. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -155,7 +156,7 @@ export function ProfilePage() {
       setSecurityAnswer("");
       await refreshUser();
     } catch (err) {
-      setSecurityError(err instanceof Error ? err.message : "Could not save security question");
+      setSecurityError(toUserErrorMessage(err, "Couldn’t save your security question. Please try again."));
     } finally {
       setSecuritySaving(false);
     }

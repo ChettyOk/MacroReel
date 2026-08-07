@@ -5,10 +5,10 @@ import {
   detectPlatform,
   extractVideoUrlFromText,
   isSupportedVideoUrl,
-  isYoutubeBotError,
   normalizeVideoUrl,
   platformDisplayName,
 } from "../lib/videoUrl";
+import { toUserErrorMessage } from "../lib/userError";
 
 const STAGES = [
   "Fetching video info",
@@ -70,7 +70,7 @@ export function ImportPage() {
       });
       navigate("/new", { state: { draft, reveal: true, sourceUrl: extracted } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Extract failed");
+      setError(toUserErrorMessage(err, "We couldn’t import that video. Please try again."));
     } finally {
       setExtracting(false);
       setStageIdx(0);
@@ -150,11 +150,6 @@ export function ImportPage() {
       {error ? (
         <div className="card" role="alert" style={{ borderColor: "var(--danger-soft-text)", color: "var(--danger-soft-text)", marginBottom: "1rem" }}>
           {error}
-          {isYoutubeBotError(error) ? (
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", color: "var(--text-muted)", lineHeight: 1.45 }}>
-              YouTube is temporarily blocking this import. Try again in a moment, use a different public link, or import the recipe by hand below.
-            </p>
-          ) : null}
         </div>
       ) : null}
 

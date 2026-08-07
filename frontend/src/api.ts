@@ -1,4 +1,5 @@
 import { getAuthToken } from "./lib/auth";
+import { sanitizeErrorMessage } from "./lib/userError";
 
 export const DIETARY_FLAGS = [
   "vegetarian",
@@ -377,39 +378,40 @@ export type HealthStatus = {
   nutrition: boolean;
   nutrition_usda: boolean;
   tts_kokoro?: boolean;
+  youtube_cookies?: boolean;
 };
 
-function friendlyValidationMsg(msg: string): string {
-  const cleaned = msg.replace(/^Value error,\s*/i, "").trim();
-  if (/password/i.test(cleaned)) return cleaned;
-  if (/field required/i.test(cleaned)) return "Please fill in all required fields.";
-  return cleaned || "Please check your entries and try again.";
-}
-
 function parseApiError(text: string, status: number): Error {
-  if (!text) {
-    if (status === 401) return new Error("Please sign in again.");
-    if (status === 404) return new Error("We couldn’t find that.");
-    if (status >= 500) return new Error("Something went wrong. Please try again in a moment.");
-    return new Error("Request failed. Please try again.");
-  }
+  const fallback =
+    status === 401
+      ? "Please sign in again."
+      : status === 404
+        ? "We couldn’t find that."
+        : status >= 500
+          ? "Something went wrong. Please try again in a moment."
+          : "Something went wrong. Please try again.";
+
+  if (!text) return new Error(fallback);
+
   try {
     const j = JSON.parse(text) as { detail?: unknown };
-    if (typeof j.detail === "string") return new Error(friendlyValidationMsg(j.detail));
+    if (typeof j.detail === "string") {
+      return new Error(sanitizeErrorMessage(j.detail, fallback));
+    }
     if (Array.isArray(j.detail)) {
       const parts = j.detail.map((item) => {
         if (item && typeof item === "object" && "msg" in item) {
-          return friendlyValidationMsg(String((item as { msg: string }).msg));
+          return sanitizeErrorMessage(String((item as { msg: string }).msg), fallback);
         }
         return "Please check your entries and try again.";
       });
-      return new Error([...new Set(parts)].join(" "));
+      return new Error([...new Set(parts)].filter(Boolean).join(" ") || fallback);
     }
   } catch {
     /* not JSON */
   }
-  if (status >= 500) return new Error("Something went wrong. Please try again in a moment.");
-  return new Error(text.length > 180 ? "Something went wrong. Please try again." : text);
+
+  return new Error(sanitizeErrorMessage(text, fallback));
 }
 
 async function parse(res: Response): Promise<void> {

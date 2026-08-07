@@ -15,6 +15,7 @@ import { useFavorites } from "../context/FavoritesContext";
 import { useShoppingCart } from "../context/ShoppingCartContext";
 import { platformOpenLabel } from "../lib/videoUrl";
 import { canShareRecipe, shareRecipe } from "../lib/shareRecipe";
+import { toUserErrorMessage } from "../lib/userError";
 import { portionNutrition } from "../portion";
 
 type Tab = "nutrition" | "cook" | "upgrades" | "original";
@@ -112,7 +113,7 @@ export function RecipeDetailPage() {
           }).then((u) => !cancelled && setUpgrades(u)),
         ]).catch(() => undefined);
       })
-      .catch((e) => !cancelled && setErr(e instanceof Error ? e.message : "Failed to load"))
+      .catch((e) => !cancelled && setErr(toUserErrorMessage(e, "Couldn’t load this recipe.")))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -159,7 +160,7 @@ export function RecipeDetailPage() {
       const i = await api.getInsights(updated.ingredients, updated.servings, updated.nutrition);
       setInsights(i);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Refresh failed");
+      setErr(toUserErrorMessage(e, "Couldn’t refresh nutrition. Please try again."));
     } finally {
       setRefreshing(false);
     }
@@ -175,7 +176,7 @@ export function RecipeDetailPage() {
       setShowDeletePrompt(false);
       navigate("/cookbook");
     } catch (e) {
-      setDeleteErr(e instanceof Error ? e.message : "Delete failed");
+      setDeleteErr(toUserErrorMessage(e, "Couldn’t delete this recipe. Please try again."));
     } finally {
       setDeleting(false);
     }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Nutrition, Recipe } from "../api";
 import * as api from "../api";
 import { localDateKey } from "../lib/storage";
+import { toUserErrorMessage } from "../lib/userError";
 import { AnimatedNumber } from "./AnimatedNumber";
 
 type Props = {
@@ -33,7 +34,7 @@ export function LogMealModal({ recipe, perServing, onClose, onLogged }: Props) {
       onLogged();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to log meal");
+      setError(toUserErrorMessage(e, "Couldn’t log this meal. Please try again."));
     } finally {
       setSaving(false);
     }

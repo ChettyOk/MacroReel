@@ -84,8 +84,3 @@ export function platformDisplayName(platform: string | null | undefined): string
 export function platformOpenLabel(platform: string | null | undefined): string {
   return `Open on ${platformDisplayName(platform)}`;
 }
-
-export function isYoutubeBotError(message: string): boolean {
-  const m = message.toLowerCase();
-  return m.includes("sign in to confirm") || m.includes("not a bot");
-}

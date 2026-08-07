@@ -4,6 +4,7 @@ import type { IngredientPriceEstimate, RecipePriceEstimate } from "../api";
 import * as api from "../api";
 import { useShoppingCart } from "../context/ShoppingCartContext";
 import { formatMergedIngredient } from "../lib/shoppingCart";
+import { toUserErrorMessage } from "../lib/userError";
 
 const CART_LOCATION_KEY = "macroreel-shopping-location";
 
@@ -91,7 +92,7 @@ export function CartPage() {
         if (!cancelled) setPricing(next);
       })
       .catch((e) => {
-        if (!cancelled) setPriceErr(e instanceof Error ? e.message : "Could not load grocery prices.");
+        if (!cancelled) setPriceErr(toUserErrorMessage(e, "Couldn’t load grocery prices. Please try again."));
       })
       .finally(() => {
         if (!cancelled) setPriceLoading(false);

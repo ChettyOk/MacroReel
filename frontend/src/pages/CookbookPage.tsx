@@ -4,6 +4,7 @@ import type { Recipe } from "../api";
 import * as api from "../api";
 import { RecipeGridSkeleton } from "../components/RecipeCardSkeleton";
 import { RecipeThumb } from "../components/RecipeThumb";
+import { toUserErrorMessage } from "../lib/userError";
 
 export function CookbookPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -17,7 +18,7 @@ export function CookbookPage() {
     try {
       setRecipes(await api.fetchRecipes());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(toUserErrorMessage(e, "Couldn’t load your cookbook. Please try again."));
     } finally {
       setLoading(false);
     }

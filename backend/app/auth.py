@@ -195,7 +195,10 @@ def login(body: UserLogin, db: Annotated[Session, Depends(get_db)]) -> AuthRespo
 @router.post("/google", response_model=AuthResponse)
 def google_auth(body: GoogleAuthRequest, db: Annotated[Session, Depends(get_db)]) -> AuthResponse:
     if not config.GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google sign-in is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in isn’t available right now. Use email and password instead.",
+        )
     try:
         idinfo = google_id_token.verify_oauth2_token(
             body.id_token,

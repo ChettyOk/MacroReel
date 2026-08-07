@@ -9,7 +9,7 @@ edge-tts>=6.1.0
 python-dotenv>=1.0.0
 PyJWT>=2.8.0
 bcrypt>=4.1.0
-yt-dlp>=2026.3.17  # keep current: TikTok/YouTube change often (run `pip install -U yt-dlp` if extraction breaks)
+yt-dlp>=2026.3.17  # keep current: TikTok/YouTube change often (pip install -U "yt-dlp[default]")
 pytest>=8.0.0
 # Note: the media pipeline (audio transcription + frame vision) also requires the
 # system `ffmpeg`/`ffprobe` binaries (e.g. `brew install ffmpeg`), not a pip package.

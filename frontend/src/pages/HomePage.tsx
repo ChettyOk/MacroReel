@@ -6,6 +6,7 @@ import { MacroRing } from "../components/MacroRing";
 import { RecipeGridSkeleton } from "../components/RecipeCardSkeleton";
 import { RecipeThumb } from "../components/RecipeThumb";
 import { loadTodayLog, sumLogTotals } from "../lib/dailyLog";
+import { toUserErrorMessage } from "../lib/userError";
 
 const FILTERS = ["All", "High protein", "Low carb", "Under 500 cal", "Quick"] as const;
 
@@ -33,9 +34,11 @@ export function HomePage() {
   const [dailyLog, setDailyLog] = useState<DailyLogDay | null>(null);
   const [filter, setFilter] = useState<string>("All");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [list, profile, log] = await Promise.all([
         api.fetchRecipes(),
@@ -45,8 +48,9 @@ export function HomePage() {
       setRecipes(list.slice(0, 12));
       setTargets(profile.targets);
       setDailyLog(log);
-    } catch {
+    } catch (e) {
       setRecipes([]);
+      setError(toUserErrorMessage(e, "Couldn’t load today’s data. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -78,6 +82,15 @@ export function HomePage() {
         <h1 className="page-title">Today</h1>
         <p className="page-sub" style={{ margin: 0 }}>What should you eat?</p>
       </header>
+
+      {error ? (
+        <div className="alert alert--error" role="alert" style={{ marginBottom: "1rem" }}>
+          {error}
+          <button type="button" className="btn btn--secondary" style={{ marginTop: "0.65rem" }} onClick={() => void load()}>
+            Try again
+          </button>
+        </div>
+      ) : null}
 
       <section className="remaining-banner" style={{ marginBottom: "1rem" }}>
         {remaining != null ? (

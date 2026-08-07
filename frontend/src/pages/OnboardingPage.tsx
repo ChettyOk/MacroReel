@@ -6,6 +6,7 @@ import { BodyStatsFields } from "../components/BodyStatsFields";
 import { MacroRing } from "../components/MacroRing";
 import { useAuth } from "../context/AuthContext";
 import { markOnboardingDone } from "../lib/storage";
+import { toUserErrorMessage } from "../lib/userError";
 
 const GOALS = [
   { id: "gain", icon: "💪", title: "Build muscle", sub: "Higher protein, strength-focused fuel" },
@@ -25,9 +26,11 @@ export function OnboardingPage() {
   const [activity, setActivity] = useState("moderate");
   const [targets, setTargets] = useState<api.DailyTargets | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function skipStats() {
     setSaving(true);
+    setError(null);
     try {
       await api.saveProfile({
         height_cm: null,
@@ -39,16 +42,18 @@ export function OnboardingPage() {
         allergies: [],
         dietary_prefs: [],
       });
-    } catch {
-      /* still let them in */
+      markOnboardingDone(user?.id);
+      navigate("/home", { replace: true });
+    } catch (e) {
+      setError(toUserErrorMessage(e, "Couldn’t save your goal. Please try again."));
+    } finally {
+      setSaving(false);
     }
-    markOnboardingDone(user?.id);
-    navigate("/home", { replace: true });
-    setSaving(false);
   }
 
   async function finish() {
     setSaving(true);
+    setError(null);
     try {
       const p = await api.saveProfile({
         height_cm: heightCm,
@@ -63,15 +68,15 @@ export function OnboardingPage() {
       setTargets(p.targets);
       markOnboardingDone(user?.id);
       navigate("/home", { replace: true });
-    } catch {
-      markOnboardingDone(user?.id);
-      navigate("/home", { replace: true });
+    } catch (e) {
+      setError(toUserErrorMessage(e, "Couldn’t finish setup. Please try again."));
     } finally {
       setSaving(false);
     }
   }
 
   async function loadPreviewTargets() {
+    setError(null);
     try {
       const p = await api.saveProfile({
         height_cm: heightCm,
@@ -84,8 +89,8 @@ export function OnboardingPage() {
         dietary_prefs: [],
       });
       setTargets(p.targets);
-    } catch {
-      /* preview optional */
+    } catch (e) {
+      setError(toUserErrorMessage(e, "Couldn’t preview your targets. You can still continue."));
     }
   }
 
@@ -98,6 +103,11 @@ export function OnboardingPage() {
       <h1 className="page-title" style={{ fontSize: "2rem" }}>
         {step === 0 ? "What's your goal?" : step === 1 ? "Quick stats" : "Your daily targets"}
       </h1>
+      {error ? (
+        <div className="alert alert--error" role="alert" style={{ marginBottom: "0.85rem" }}>
+          {error}
+        </div>
+      ) : null}
 
       {step === 0 ? (
         <>

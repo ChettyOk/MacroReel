@@ -55,7 +55,7 @@ from app.thumbnail_cache import (
 )
 from app.spa import mount_spa
 from app.upgrades import build_recipe_upgrades
-from app.video_context import fetch_video_context
+from app.video_context import cookies_configured, fetch_video_context
 from app.video_urls import normalize_video_url
 
 app = FastAPI(title="Recipe API", version="0.4.0")
@@ -96,6 +96,7 @@ def health() -> dict[str, object]:
         "nutrition_usda": bool(config.USDA_API_KEY),
         "nutrition_gemini": bool(config.GEMINI_API_KEY),
         "tts_kokoro": tts_provider_available(),
+        "youtube_cookies": cookies_configured(),
         "supported_video_platforms": ["tiktok", "youtube", "instagram", "facebook"],
     }
 
@@ -177,11 +178,20 @@ def extract_recipe_from_video(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except GeminiUpstreamError as e:
-        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+        raise HTTPException(
+            status_code=e.status_code,
+            detail="Recipe AI is busy right now. Please try again in a moment.",
+        ) from e
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+        raise HTTPException(
+            status_code=503,
+            detail="Import isn’t available right now. Please try again shortly.",
+        ) from e
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"Extraction failed: {e}") from e
+        raise HTTPException(
+            status_code=502,
+            detail="We couldn’t import that video. Try another link or add the recipe by hand.",
+        ) from e
 
     draft = result.draft
 
@@ -372,7 +382,10 @@ def text_to_speech(
     try:
         audio, media_type = synthesize_kokoro(body.text, body.voice)
     except TTSError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+        raise HTTPException(
+            status_code=503,
+            detail="Voice playback isn’t available right now.",
+        ) from e
     return Response(
         content=audio,
         media_type=media_type,
@@ -477,7 +490,10 @@ def refresh_recipe_nutrition(
             raise HTTPException(status_code=422, detail=str(e)) from e
 
     if not config.ENABLE_NUTRITION:
-        raise HTTPException(status_code=503, detail="Nutrition is disabled on the server.")
+        raise HTTPException(
+            status_code=503,
+            detail="Nutrition lookup isn’t available right now.",
+        )
 
     nutrition = compute_nutrition(ingredients, recipe.servings, context_text=context)
     recipe.nutrition = nutrition.model_dump_json()
