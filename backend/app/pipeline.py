@@ -13,7 +13,7 @@ from pathlib import Path
 from app import config
 from app.gemini_extract import GeminiUpstreamError, structure_recipe
 from app.heuristic_recipe import draft_from_text
-from app.schemas import RecipeBase
+from app.schemas import NutritionReport, RecipeBase
 from app.video_context import VideoContext, fetch_video_context
 from app.video_urls import detect_platform, normalize_video_url, validate_video_url
 
@@ -32,6 +32,7 @@ class PipelineResult:
     steps_log: list[str] = field(default_factory=list)
     note: str | None = None
     source_context_text: str | None = None  # description/caption for stated-macro parsing
+    stated_nutrition: NutritionReport | None = None
 
 
 def _combine_context(
@@ -138,6 +139,7 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
             outcome = structure_recipe(combined)
             result.draft = outcome.draft
             result.used_ai = True
+            result.stated_nutrition = outcome.stated_nutrition
             result.steps_log.append(f"structured with Gemini ({outcome.model_used})")
             if outcome.model_used != config.GEMINI_MODEL:
                 result.note = (
@@ -160,6 +162,15 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
         raise ValueError(
             "No recipe found in this video’s title, description, or captions. "
             "Try a cooking video with ingredients listed, or enable Deep extract."
+        )
+
+    # Warn when we only had thin caption text (common cause of mismatched drafts).
+    rich_source = result.had_transcript or result.had_audio_transcription or result.had_frame_vision
+    if not rich_source and not result.note:
+        result.note = (
+            "Imported from the video caption/description only. "
+            "Turn on Deeper extract (and ENABLE_MEDIA_PIPELINE on the server) "
+            "to read spoken steps and on-screen text for a closer match."
         )
 
     return result

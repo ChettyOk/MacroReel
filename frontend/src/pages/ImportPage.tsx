@@ -39,7 +39,13 @@ export function ImportPage() {
   const detected = videoUrl.trim() ? detectPlatform(videoUrl) : null;
 
   useEffect(() => {
-    void api.fetchHealth().then(setHealth).catch(() => setHealth(null));
+    void api.fetchHealth().then((h) => {
+      setHealth(h);
+      // Prefer deeper extract when the server can download + transcribe — much closer to the video.
+      if (h.media_pipeline) {
+        setUseDeepExtract(true);
+      }
+    }).catch(() => setHealth(null));
   }, []);
 
   useEffect(() => {
@@ -66,7 +72,7 @@ export function ImportPage() {
     try {
       const draft = await api.extractRecipeFromVideo(extracted, {
         useAi,
-        useMedia: useDeepExtract ? true : false,
+        useMedia: useDeepExtract,
       });
       navigate("/new", { state: { draft, reveal: true, sourceUrl: extracted } });
     } catch (err) {
@@ -191,9 +197,12 @@ export function ImportPage() {
             onChange={(e) => setUseDeepExtract(e.target.checked)}
             disabled={health != null && !health.media_pipeline}
           />
-          Deeper extract (read spoken steps and on-screen text)
+          Deeper extract (read spoken steps and on-screen text — more accurate)
           {health != null && !health.media_pipeline ? (
-            <span className="check-row__hint"> — not available right now</span>
+            <span className="check-row__hint">
+              {" "}
+              — turn on ENABLE_MEDIA_PIPELINE=true on the server
+            </span>
           ) : null}
         </label>
         <button type="submit" className="btn btn--primary btn--block" disabled={!videoUrl.trim()}>

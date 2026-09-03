@@ -626,13 +626,20 @@ def fetch_video_context(url: str) -> VideoContext:
     transcript = _download_best_transcript(info, cookiejar=cookiejar).strip()
     thumbnail_url = pick_best_thumbnail(info)
 
-    # If yt-dlp returned a thin payload (common under partial blocks), enrich via fallback.
-    if _is_youtube_url(url) and (not description or not transcript):
+    # Always enrich YouTube with Innertube/oEmbed when they have longer description/captions.
+    # yt-dlp often returns thin captions on datacenter IPs even when metadata succeeds.
+    if _is_youtube_url(url):
         fb = _video_context_from_fallback(url)
         if fb is not None:
             title = title or fb.title
-            description = description or fb.description
-            transcript = transcript or fb.transcript
+            if len(fb.description) > len(description):
+                description = fb.description
+            elif not description:
+                description = fb.description
+            if len(fb.transcript) > len(transcript):
+                transcript = fb.transcript
+            elif not transcript:
+                transcript = fb.transcript
             thumbnail_url = thumbnail_url or fb.thumbnail_url
 
     if len(transcript) > MAX_TRANSCRIPT_CHARS:

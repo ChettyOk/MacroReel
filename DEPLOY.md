@@ -54,6 +54,7 @@ docker run --rm -p 8000:8000 \
 - Render serves `index.html`, `sw.js`, and `manifest.webmanifest` with no-cache headers so new devices and redeploys receive the newest app shell/share config.
 - For YouTube bot errors on Render, paste your cookies.txt into `YTDLP_COOKIES_CONTENT` (raw or base64). Do **not** use `YTDLP_COOKIES_FILE` on Render unless the file is baked into the image — the container has no `cookies/` folder. Do **not** set `YTDLP_COOKIES_FROM_BROWSER` on Render (that causes `could not find chrome cookies database in "/root/.config/google-chrome"`). Cookies must include **login** cookies (`SAPISID` / `__Secure-1PSID`), not visitor-only. The app also falls back to Innertube (and optional `YOUTUBE_API_KEY`) for title/description/captions when yt-dlp is blocked. See README.
 - After deploy, confirm `GET /health` shows `"youtube_cookies": true` when cookies are configured, and `"youtube_cookies_auth": true` when the jar looks signed-in. MacroReel retries YouTube with cookie-free Android/iOS clients first, then Innertube/oEmbed fallbacks, so many public videos work without cookies.
+- For accurate ingredients/steps/macros, set **`ENABLE_MEDIA_PIPELINE=true`** (ffmpeg is already in the image). Caption-only import often invents details when the recipe is spoken or on-screen. On Import, use **Deeper extract**.
 
 ## 3. Deploy on Fly.io, Railway, or a VPS
 

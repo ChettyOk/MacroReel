@@ -205,9 +205,20 @@ def extract_recipe_from_video(
             draft.servings,
             context_text=result.source_context_text,
         )
+        # Prefer regex-parsed caption macros; otherwise use AI-extracted stated numbers
+        # (still from the video text — not USDA guesses) when available.
+        caption_stated = (nutrition.source or "").startswith("Creator caption")
+        if not caption_stated and result.stated_nutrition is not None:
+            ai_stated = result.stated_nutrition
+            if ai_stated.per_serving.calories is not None or ai_stated.per_serving.protein_g is not None:
+                nutrition = ai_stated
+                result.steps_log.append("used creator-stated macros from video text")
+            else:
+                result.steps_log.append(f"computed nutrition ({nutrition.source or 'estimate'})")
+        else:
+            result.steps_log.append(f"computed nutrition ({nutrition.source or 'estimate'})")
         if nutrition.servings and (draft.servings is None or draft.servings == 1):
             draft.servings = nutrition.servings
-        result.steps_log.append(f"computed nutrition ({nutrition.source or 'estimate'})")
 
     return ExtractFromVideoResponse(
         title=draft.title,
