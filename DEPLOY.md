@@ -52,8 +52,8 @@ docker run --rm -p 8000:8000 \
 - Share a TikTok, Instagram, or YouTube link to MacroReel (share target uses your deployed origin).
 - If the share option does not appear after a redeploy, uninstall/remove the old PWA from the device and install it again. Android/Chrome reads share target support from the installed manifest.
 - Render serves `index.html`, `sw.js`, and `manifest.webmanifest` with no-cache headers so new devices and redeploys receive the newest app shell/share config.
-- For YouTube bot errors on Render, paste your cookies.txt into `YTDLP_COOKIES_CONTENT` (raw or base64). Do **not** use `YTDLP_COOKIES_FILE` on Render unless the file is baked into the image — the container has no `cookies/` folder. Do **not** set `YTDLP_COOKIES_FROM_BROWSER` on Render (that causes `could not find chrome cookies database in "/root/.config/google-chrome"`). See README.
-- After deploy, confirm `GET /health` shows `"youtube_cookies": true` when cookies are configured. MacroReel also retries YouTube with cookie-free Android/iOS clients first, so many public videos work without cookies.
+- For YouTube bot errors on Render, paste your cookies.txt into `YTDLP_COOKIES_CONTENT` (raw or base64). Do **not** use `YTDLP_COOKIES_FILE` on Render unless the file is baked into the image — the container has no `cookies/` folder. Do **not** set `YTDLP_COOKIES_FROM_BROWSER` on Render (that causes `could not find chrome cookies database in "/root/.config/google-chrome"`). Cookies must include **login** cookies (`SAPISID` / `__Secure-1PSID`), not visitor-only. The app also falls back to Innertube (and optional `YOUTUBE_API_KEY`) for title/description/captions when yt-dlp is blocked. See README.
+- After deploy, confirm `GET /health` shows `"youtube_cookies": true` when cookies are configured, and `"youtube_cookies_auth": true` when the jar looks signed-in. MacroReel retries YouTube with cookie-free Android/iOS clients first, then Innertube/oEmbed fallbacks, so many public videos work without cookies.
 
 ## 3. Deploy on Fly.io, Railway, or a VPS
 
@@ -92,6 +92,8 @@ Set `PORT` if the platform injects it (Render/Fly do automatically).
 | `YTDLP_COOKIES_FILE` | No | Path to a Netscape cookies.txt (local dev; file must exist in the container) |
 | `YTDLP_COOKIES_CONTENT` | No | Paste cookies.txt body (raw or base64) — **use this on Render**; written to `DATA_DIR` at runtime |
 | `YTDLP_COOKIES_FROM_BROWSER` | No | e.g. `chrome` — **local desktop only**. Do **not** set on Render/Docker (there is no Chrome under `/root/.config`) |
+| `YTDLP_PROXY` | No | HTTP(S) proxy for yt-dlp when the host IP is hard-blocked |
+| `YOUTUBE_API_KEY` | No | YouTube Data API v3 key — description/title fallback when yt-dlp is blocked |
 | `EXTRA_CORS_ORIGINS` | No | Only if frontend is on a **different** domain |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth Web client ID for sign-in (also exposed to the SPA at `/app-config.json`) |
 | `JWT_SECRET` | Yes (multi-user) | Long random string for auth tokens; must stay stable across deploys |

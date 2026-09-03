@@ -61,3 +61,24 @@ def test_chrome_cookies_db_error_is_user_friendly():
     )
     assert "/root/" not in msg
     assert "google-chrome" not in msg.lower()
+
+
+def test_visitor_only_cookies_are_not_authenticated(tmp_path):
+    from app.video_context import _cookie_file_has_youtube_auth
+
+    jar = tmp_path / "cookies.txt"
+    jar.write_text(
+        "# Netscape HTTP Cookie File\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tYSC\tabc\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tVISITOR_INFO1_LIVE\tx\n",
+        encoding="utf-8",
+    )
+    assert _cookie_file_has_youtube_auth(jar) is False
+
+    jar.write_text(
+        "# Netscape HTTP Cookie File\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tYSC\tabc\n"
+        ".google.com\tTRUE\t/\tTRUE\t0\tSAPISID\tsecret\n",
+        encoding="utf-8",
+    )
+    assert _cookie_file_has_youtube_auth(jar) is True

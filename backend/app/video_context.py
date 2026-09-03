@@ -22,9 +22,11 @@ from app.config import (
     YTDLP_COOKIES_CONTENT,
     YTDLP_COOKIES_FILE,
     YTDLP_COOKIES_FROM_BROWSER,
+    YTDLP_PROXY,
     YTDLP_YOUTUBE_PLAYER_CLIENTS,
 )
 from app.thumbnail import pick_best_thumbnail
+from app.youtube_meta import fetch_youtube_metadata_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -207,9 +209,71 @@ def _yt_dlp_cookie_options() -> dict[str, Any]:
     return browser or {}
 
 
+# Cookie names that indicate a signed-in Google/YouTube session (not visitor-only).
+_YOUTUBE_AUTH_COOKIE_NAMES = frozenset(
+    {
+        "SID",
+        "HSID",
+        "SSID",
+        "APISID",
+        "SAPISID",
+        "LOGIN_INFO",
+        "__Secure-1PSID",
+        "__Secure-3PSID",
+        "__Secure-1PSIDTS",
+        "__Secure-3PSIDTS",
+        "SIDCC",
+    }
+)
+
+
+def _cookie_file_has_youtube_auth(path: Path) -> bool:
+    """True when Netscape jar includes signed-in YouTube/Google session cookies."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+        domain, name = parts[0].lower(), parts[5]
+        if name not in _YOUTUBE_AUTH_COOKIE_NAMES:
+            continue
+        if "youtube.com" in domain or "google.com" in domain or domain.endswith("youtube.com"):
+            return True
+        # Google auth cookies often live on .google.com / accounts.google.com.
+        if domain.lstrip(".").startswith("google.") or ".google." in domain:
+            return True
+    return False
+
+
 def cookies_configured() -> bool:
     """True when any cookie source is available for YouTube hardening."""
     return bool(_yt_dlp_cookie_options())
+
+
+def youtube_cookies_authenticated() -> bool:
+    """
+    True when cookie file/content looks like a logged-in YouTube session.
+
+    Visitor-only jars (PREF/YSC/VISITOR_*) satisfy cookies_configured() but do not
+    bypass bot checks on datacenter IPs (e.g. Render). Browser cookie mode is
+    treated as authenticated when a local profile exists.
+    """
+    cookie_file = _resolve_configured_cookie_file()
+    if cookie_file is not None:
+        ok = _cookie_file_has_youtube_auth(cookie_file)
+        if not ok:
+            logger.warning(
+                "YouTube cookies are configured but look visitor-only (missing SID/"
+                "SAPISID/__Secure-1PSID/LOGIN_INFO). Re-export while logged into "
+                "youtube.com, including google.com cookies if the extension offers that."
+            )
+        return ok
+    return _browser_cookie_options() is not None
 
 
 def _is_youtube_url(url: str) -> bool:
@@ -478,6 +542,36 @@ def _extract_info_once(url: str, opts: dict[str, Any]) -> tuple[dict[str, Any], 
     return info, cookiejar
 
 
+def _video_context_from_fallback(url: str) -> VideoContext | None:
+    """Innertube / Data API / oEmbed when yt-dlp is bot-blocked (esp. Render)."""
+    meta = fetch_youtube_metadata_fallback(url, max_transcript_chars=MAX_TRANSCRIPT_CHARS)
+    if not meta:
+        return None
+    title = str(meta.get("title") or "").strip()
+    description = str(meta.get("description") or "").strip()
+    transcript = str(meta.get("transcript") or "").strip()
+    thumbnail_url = meta.get("thumbnail_url")
+    if isinstance(thumbnail_url, str):
+        thumbnail_url = thumbnail_url.strip() or None
+    else:
+        thumbnail_url = None
+    if not (title or description or transcript):
+        return None
+    logger.info(
+        "YouTube metadata via fallback (%s): title=%s desc_len=%d transcript_len=%d",
+        meta.get("source"),
+        bool(title),
+        len(description),
+        len(transcript),
+    )
+    return VideoContext(
+        title=title,
+        description=description,
+        transcript=transcript,
+        thumbnail_url=thumbnail_url,
+    )
+
+
 def fetch_video_context(url: str) -> VideoContext:
     base_opts: dict[str, Any] = {
         "quiet": True,
@@ -488,6 +582,8 @@ def fetch_video_context(url: str) -> VideoContext:
         "retries": 2,
         "fragment_retries": 2,
     }
+    if YTDLP_PROXY:
+        base_opts["proxy"] = YTDLP_PROXY
 
     last_error: Exception | None = None
     info: dict[str, Any] | None = None
@@ -502,6 +598,11 @@ def fetch_video_context(url: str) -> VideoContext:
             if _is_youtube_url(url) and _is_retryable_youtube_error(str(e)):
                 logger.info("YouTube extract attempt failed (%s); trying next strategy", _clean_ytdlp_error(str(e))[:120])
                 continue
+            # Non-retryable yt-dlp error: still try metadata fallbacks for public YouTube.
+            if _is_youtube_url(url):
+                fb = _video_context_from_fallback(url)
+                if fb is not None:
+                    return fb
             raise ValueError(_user_facing_ytdlp_error(str(e))) from e
         except OSError as e:
             # Disk-full while refreshing cookie jars, etc.
@@ -512,6 +613,10 @@ def fetch_video_context(url: str) -> VideoContext:
             raise ValueError("We couldn’t read that video right now. Please try again.") from e
 
     if info is None:
+        if _is_youtube_url(url):
+            fb = _video_context_from_fallback(url)
+            if fb is not None:
+                return fb
         if last_error is not None:
             raise ValueError(_user_facing_ytdlp_error(str(last_error))) from last_error
         raise ValueError("We couldn’t read that video. Try another link or add the recipe by hand.")
@@ -520,6 +625,15 @@ def fetch_video_context(url: str) -> VideoContext:
     description = str(info.get("description") or info.get("alt_title") or "").strip()
     transcript = _download_best_transcript(info, cookiejar=cookiejar).strip()
     thumbnail_url = pick_best_thumbnail(info)
+
+    # If yt-dlp returned a thin payload (common under partial blocks), enrich via fallback.
+    if _is_youtube_url(url) and (not description or not transcript):
+        fb = _video_context_from_fallback(url)
+        if fb is not None:
+            title = title or fb.title
+            description = description or fb.description
+            transcript = transcript or fb.transcript
+            thumbnail_url = thumbnail_url or fb.thumbnail_url
 
     if len(transcript) > MAX_TRANSCRIPT_CHARS:
         transcript = transcript[:MAX_TRANSCRIPT_CHARS] + "\n\n[…truncated…]"

@@ -55,7 +55,7 @@ from app.thumbnail_cache import (
 )
 from app.spa import mount_spa
 from app.upgrades import build_recipe_upgrades
-from app.video_context import cookies_configured, fetch_video_context
+from app.video_context import cookies_configured, fetch_video_context, youtube_cookies_authenticated
 from app.video_urls import normalize_video_url
 
 app = FastAPI(title="Recipe API", version="0.4.0")
@@ -97,6 +97,8 @@ def health() -> dict[str, object]:
         "nutrition_gemini": bool(config.GEMINI_API_KEY),
         "tts_kokoro": tts_provider_available(),
         "youtube_cookies": cookies_configured(),
+        "youtube_cookies_auth": youtube_cookies_authenticated(),
+        "youtube_api_key": bool(config.YOUTUBE_API_KEY),
         "supported_video_platforms": ["tiktok", "youtube", "instagram", "facebook"],
     }
 

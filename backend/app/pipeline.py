@@ -124,16 +124,14 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
         else:
             audio_transcript, onscreen_text = _run_media_stage(url, result)
 
-    # 3) Combine all available text.
+    # 3) Combine all available text (title + description + captions + media).
     combined = _combine_context(ctx, audio_transcript, onscreen_text)
     if not combined.strip():
         raise ValueError("No title, description, captions, transcript, or on-screen text found for this URL.")
 
     # 4) Structure with Gemini, or heuristics.
-    blob = "\n\n".join(
-        x for x in (ctx.description.strip(), onscreen_text.strip(), audio_transcript.strip(), ctx.transcript.strip()) if x
-    )
-    result.source_context_text = blob or ctx.description.strip() or None
+    # Keep the full combined block for stated-macro parsing (calories in title/captions too).
+    result.source_context_text = combined.strip() or None
 
     if use_ai:
         try:
@@ -148,14 +146,14 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
                 )
         except GeminiUpstreamError as e:
             if e.status_code == 429 and config.GEMINI_FALLBACK_ON_QUOTA:
-                result.draft = draft_from_text(ctx.title, blob, transcript=audio_transcript or ctx.transcript)
+                result.draft = draft_from_text(ctx.title, combined, transcript=audio_transcript or ctx.transcript)
                 result.used_ai = False
                 result.note = f"{e} Loaded a heuristic draft instead \u2014 edit below, or retry later."
                 result.steps_log.append("Gemini quota hit \u2014 used heuristic fallback")
             else:
                 raise
     else:
-        result.draft = draft_from_text(ctx.title, blob, transcript=audio_transcript or ctx.transcript)
+        result.draft = draft_from_text(ctx.title, combined, transcript=audio_transcript or ctx.transcript)
         result.steps_log.append("structured with heuristics (no AI)")
 
     if _is_empty_recipe_draft(result.draft):

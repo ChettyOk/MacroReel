@@ -110,6 +110,10 @@ YTDLP_COOKIES_FILE: str = os.getenv("YTDLP_COOKIES_FILE", "").strip()
 YTDLP_COOKIES_CONTENT: str = os.getenv("YTDLP_COOKIES_CONTENT", "")
 YTDLP_COOKIES_FROM_BROWSER: str = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip()
 YTDLP_YOUTUBE_PLAYER_CLIENTS: str = os.getenv("YTDLP_YOUTUBE_PLAYER_CLIENTS", "").strip()
+# Optional HTTP(S) proxy for yt-dlp (helps when Render’s IP is hard-blocked by YouTube).
+YTDLP_PROXY: str = os.getenv("YTDLP_PROXY", "").strip() or os.getenv("HTTPS_PROXY", "").strip() or os.getenv("HTTP_PROXY", "").strip()
+# Optional YouTube Data API v3 key — used as metadata fallback when yt-dlp is blocked.
+YOUTUBE_API_KEY: str = _clean_secret(os.getenv("YOUTUBE_API_KEY", ""))
 
 # Comma-separated extra CORS origins (the Vite dev server is always allowed).
 EXTRA_CORS_ORIGINS: str = os.getenv("EXTRA_CORS_ORIGINS", "").strip()
