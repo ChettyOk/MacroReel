@@ -30,6 +30,8 @@ COPY --from=frontend /app/frontend/dist ./static
 ENV DATA_DIR=/data
 ENV STATIC_DIR=/app/static
 ENV PORT=8000
+# Image includes ffmpeg — enable deep extract by default (override with false on Render if needed).
+ENV ENABLE_MEDIA_PIPELINE=true
 EXPOSE 8000
 
 VOLUME /data

@@ -86,12 +86,15 @@ def on_startup() -> None:
 
 @app.get("/health")
 def health() -> dict[str, object]:
+    ffmpeg_ok = config.ffmpeg_available()
     return {
         "status": "ok",
         "ai": bool(config.GEMINI_API_KEY),
         "google_oauth": bool(config.GOOGLE_CLIENT_ID),
-        "media_pipeline": config.ENABLE_MEDIA_PIPELINE and config.ffmpeg_available(),
-        "ffmpeg": config.ffmpeg_available(),
+        # True when deep extract can run (ffmpeg present). ENABLE_MEDIA_PIPELINE only sets the default.
+        "media_pipeline": ffmpeg_ok,
+        "media_pipeline_default": bool(config.ENABLE_MEDIA_PIPELINE and ffmpeg_ok),
+        "ffmpeg": ffmpeg_ok,
         "nutrition": config.ENABLE_NUTRITION,
         "nutrition_usda": bool(config.USDA_API_KEY),
         "nutrition_gemini": bool(config.GEMINI_API_KEY),

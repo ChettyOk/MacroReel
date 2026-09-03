@@ -71,8 +71,9 @@ GEMINI_MODEL_FALLBACKS: str = os.getenv(
 GEMINI_FALLBACK_ON_QUOTA: bool = _flag("GEMINI_FALLBACK_ON_QUOTA", True)
 
 # ── Media pipeline (download + ffmpeg + Gemini audio transcription + frame vision) ──
-# Off by default: keeps the app light and avoids downloading videos unless you opt in.
-ENABLE_MEDIA_PIPELINE: bool = _flag("ENABLE_MEDIA_PIPELINE", False)
+# On by default when unset. Production Docker image also sets ENABLE_MEDIA_PIPELINE=true.
+# Set to false only if you want caption/description-only imports.
+ENABLE_MEDIA_PIPELINE: bool = _flag("ENABLE_MEDIA_PIPELINE", True)
 ENABLE_TRANSCRIPTION: bool = _flag("ENABLE_TRANSCRIPTION", True)  # within media pipeline
 ENABLE_FRAME_VISION: bool = _flag("ENABLE_FRAME_VISION", True)  # within media pipeline
 FRAME_INTERVAL_SEC: int = int(os.getenv("FRAME_INTERVAL_SEC", "4") or "4")

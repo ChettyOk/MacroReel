@@ -40,17 +40,30 @@ def _combine_context(
     audio_transcript: str,
     onscreen_text: str,
 ) -> str:
+    """Order blocks so Gemini sees caption ingredients and spoken/on-screen steps clearly."""
     parts: list[str] = []
     if ctx.title.strip():
         parts.append(f"Video title:\n{ctx.title.strip()}")
     if ctx.description.strip():
-        parts.append(f"Description / caption:\n{ctx.description.strip()}")
-    if ctx.transcript.strip():
-        parts.append(f"Subtitles/captions from the page:\n{ctx.transcript.strip()}")
-    if audio_transcript.strip():
-        parts.append(f"Audio transcript (spoken instructions):\n{audio_transcript.strip()}")
+        parts.append(
+            "Description / caption (prefer this for ingredient lists and stated macros):\n"
+            f"{ctx.description.strip()}"
+        )
     if onscreen_text.strip():
-        parts.append(f"On-screen text from video frames:\n{onscreen_text.strip()}")
+        parts.append(
+            "On-screen text from video frames (prefer for ingredient cards / macro overlays):\n"
+            f"{onscreen_text.strip()}"
+        )
+    if audio_transcript.strip():
+        parts.append(
+            "Audio transcript (spoken instructions — prefer for steps):\n"
+            f"{audio_transcript.strip()}"
+        )
+    if ctx.transcript.strip():
+        parts.append(
+            "Subtitles/captions from the page (prefer for steps when no audio transcript):\n"
+            f"{ctx.transcript.strip()}"
+        )
     return "\n\n---\n\n".join(parts)
 
 
@@ -116,7 +129,8 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
     result.steps_log.append("fetched page metadata/captions")
 
     # 2) Optional media pipeline (download + ffmpeg + Gemini transcribe/OCR).
-    want_media = config.ENABLE_MEDIA_PIPELINE if use_media is None else use_media
+    # Client use_media=True runs deep extract whenever ffmpeg exists; ENABLE_MEDIA_PIPELINE is the default only.
+    want_media = config.ENABLE_MEDIA_PIPELINE if use_media is None else bool(use_media)
     audio_transcript = ""
     onscreen_text = ""
     if want_media:
@@ -124,6 +138,8 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
             result.steps_log.append("media pipeline requested but ffmpeg/ffprobe not found — using captions only")
         else:
             audio_transcript, onscreen_text = _run_media_stage(url, result)
+            if not audio_transcript and not onscreen_text and not result.had_transcript:
+                result.steps_log.append("deep extract produced no extra text — using captions/description")
 
     # 3) Combine all available text (title + description + captions + media).
     combined = _combine_context(ctx, audio_transcript, onscreen_text)
@@ -169,8 +185,7 @@ def run_pipeline(url: str, *, use_ai: bool, use_media: bool | None) -> PipelineR
     if not rich_source and not result.note:
         result.note = (
             "Imported from the video caption/description only. "
-            "Turn on Deeper extract (and ENABLE_MEDIA_PIPELINE on the server) "
-            "to read spoken steps and on-screen text for a closer match."
+            "Turn on Deeper extract to read spoken steps and on-screen text for a closer match."
         )
 
     return result

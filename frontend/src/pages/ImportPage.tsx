@@ -199,10 +199,7 @@ export function ImportPage() {
           />
           Deeper extract (read spoken steps and on-screen text — more accurate)
           {health != null && !health.media_pipeline ? (
-            <span className="check-row__hint">
-              {" "}
-              — turn on ENABLE_MEDIA_PIPELINE=true on the server
-            </span>
+            <span className="check-row__hint"> — needs ffmpeg on the server</span>
           ) : null}
         </label>
         <button type="submit" className="btn btn--primary btn--block" disabled={!videoUrl.trim()}>

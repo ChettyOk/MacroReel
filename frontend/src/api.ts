@@ -374,11 +374,13 @@ export type HealthStatus = {
   status: string;
   ai: boolean;
   media_pipeline: boolean;
+  media_pipeline_default?: boolean;
   ffmpeg: boolean;
   nutrition: boolean;
   nutrition_usda: boolean;
   tts_kokoro?: boolean;
   youtube_cookies?: boolean;
+  youtube_cookies_auth?: boolean;
 };
 
 function parseApiError(text: string, status: number): Error {

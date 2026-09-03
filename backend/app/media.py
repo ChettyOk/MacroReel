@@ -8,7 +8,7 @@ from typing import Any
 
 import yt_dlp
 
-from app.config import FFMPEG_BIN, FFPROBE_BIN, MAX_VIDEO_SECONDS
+from app.config import FFMPEG_BIN, FFPROBE_BIN, MAX_VIDEO_SECONDS, YTDLP_PROXY
 from app.video_context import (
     _clean_ytdlp_error,
     _is_retryable_youtube_error,
@@ -35,6 +35,8 @@ def download_video(url: str, workdir: Path) -> Path:
         "socket_timeout": 30,
         "retries": 2,
     }
+    if YTDLP_PROXY:
+        base["proxy"] = YTDLP_PROXY
 
     last_error: Exception | None = None
     for opts in iter_ytdlp_option_sets(url, base):
